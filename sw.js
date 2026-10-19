@@ -1,11 +1,11 @@
 // sw.js — keeps a copy of StarSound on the phone so it works at dark-sky
 // sites with no cell signal. Bump VERSION whenever you change any file.
-const VERSION = "starsound-v3";
+const VERSION = "starsound-v4";
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest",
-  "./data/sky-data.js", "./data/stories.js", "./data/faq.js", "./lib/astronomy.browser.min.js",
-  "./js/astro.js", "./js/sensors.js", "./js/audio.js", "./js/commands.js", "./js/listen.js", "./js/app.js",
-  "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png",
+  "./sky-data.js", "./stories.js", "./faq.js", "./astronomy.browser.min.js",
+  "./astro.js", "./sensors.js", "./audio.js", "./commands.js", "./listen.js", "./app.js",
+  "./icon.svg", "./icon-192.png", "./icon-512.png",
 ];
 
 self.addEventListener("install", (e) => {

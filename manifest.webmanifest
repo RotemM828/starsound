@@ -1,0 +1,16 @@
+{
+  "name": "StarSound",
+  "short_name": "StarSound",
+  "description": "Hear the night sky: explore the stars by sound.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05070f",
+  "theme_color": "#05070f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

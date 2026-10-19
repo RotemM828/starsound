@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05070f">
+  <meta name="description" content="StarSound lets blind and visually impaired people explore the night sky by sound.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>StarSound</title>
+  <style>
+    :root { color-scheme: dark; --bg: #05070f; --fg: #e8ecf6; --muted: #9aa5bd; --accent: #7fd1ff; --btn: #141a2c; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.45 system-ui, -apple-system, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.6rem; margin: 4px 0 2px; }
+    h2 { font-size: 1rem; color: var(--muted); font-weight: 600; margin: 18px 0 4px; }
+    p { margin: 6px 0; color: var(--muted); }
+    canvas { display: block; width: 100%; height: 40vh; min-height: 240px; border-radius: 12px; touch-action: none; margin: 12px 0; }
+    button, select { font: inherit; color: var(--fg); background: var(--btn); border: 1px solid #2a3350; border-radius: 12px; }
+    button { width: 100%; min-height: 64px; padding: 12px; margin: 6px 0; font-weight: 600; }
+    button.primary { background: #1d4f7a; border-color: #3a83bd; font-size: 1.15rem; min-height: 84px; }
+    #talkBtn { background: #1f6b4a; border-color: #3fae7c; font-size: 1.3rem; min-height: 96px; }
+    #talkBtn[aria-pressed="true"] { background: #8a2f2f; border-color: #e06464; }
+    #nextBtn { background: #6b4a1f; border-color: #c48a3f; }
+    button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    select { width: 100%; min-height: 56px; padding: 10px; }
+    label { display: block; margin: 10px 0; }
+    input[type=range] { width: 100%; min-height: 36px; }
+    details { margin-top: 14px; border-top: 1px solid #1f2740; padding-top: 8px; }
+    summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    #status { font-size: 0.85rem; color: var(--muted); }
+    #speech { min-height: 3em; padding: 10px 12px; background: #0c1222; border-radius: 10px; color: var(--fg); }
+    input[type=number] { font: inherit; width: 6em; padding: 6px; background: var(--btn); color: var(--fg); border: 1px solid #2a3350; border-radius: 8px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>StarSound</h1>
+  <p>Hear the night sky. Point your phone up; every star in view plays a note. Brighter stars are louder, blue stars are higher, red stars are lower. Use headphones.</p>
+
+  <section id="startPanel" aria-label="Start">
+    <button id="startPhone" class="primary">Start: point my phone at the sky</button>
+    <button id="startHandsFree">Start hands-free (phone on a headband or held up; say "Hey Star…")</button>
+    <button id="startPractice">Practice mode (no motion sensors, use arrow keys)</button>
+  </section>
+
+  <section id="controls" hidden aria-label="Controls">
+    <button id="talkBtn" aria-pressed="false" aria-describedby="talkHint">Talk</button>
+    <p id="talkHint">Tap Talk (or anywhere on the screen), then ask, like "Find Jupiter", "What am I pointing at?", or "Is Saturn up?" Say "help" for everything you can ask.</p>
+    <button id="handsFreeBtn" aria-pressed="false">Hands-free: off</button>
+    <button id="nextBtn" hidden>Next stop</button>
+  </section>
+
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <div id="status" aria-hidden="true"></div>
+  <div id="speech" role="status" aria-live="off"></div>
+
+  <section id="controls2" aria-label="More controls">
+    <div class="row">
+      <button id="hereBtn">What am I pointing at?</button>
+      <button id="tonightBtn">What's up tonight?</button>
+      <button id="tourBtn">Tour tonight's sky</button>
+      <button id="moreBtn">Tell me more</button>
+      <button id="conBtn">Play this constellation</button>
+      <button id="pauseBtn" aria-pressed="false">Pause sounds</button>
+      <button id="moonBtn">Moon tonight</button>
+      <button id="logBtn">What have I seen this month?</button>
+    </div>
+    <h2>Find something</h2>
+    <label class="visually-hidden" for="target">Choose what to find</label>
+    <select id="target"></select>
+    <div class="row">
+      <button id="findBtn">Start finding</button>
+      <button id="stopBtn">Stop</button>
+    </div>
+    <div class="row">
+      <button id="helpBtn">Voice commands</button>
+      <button id="tutorialBtn">How does it work?</button>
+    </div>
+
+    <details>
+      <summary>Settings</summary>
+      <label><input type="checkbox" id="srMode"> Speak through my screen reader instead of the app voice</label>
+      <label><input type="checkbox" id="conNames" checked> Say constellation names as I sweep</label>
+      <label><input type="checkbox" id="below"> Include stars below the horizon</label>
+      <label>Star volume <input type="range" id="volume" min="0" max="1.5" step="0.05" value="0.8"></label>
+      <label>Speaking speed <input type="range" id="rate" min="0.6" max="1.8" step="0.05" value="1"></label>
+      <label>Sky time
+        <select id="timeMode">
+          <option value="now">Right now</option>
+          <option value="tonight">Tonight at 9 PM</option>
+        </select>
+      </label>
+      <label>Magnetic declination (degrees east) <input type="number" id="decl" value="11.5" step="0.5"></label>
+      <p>Compass off? With a sighted helper, point the phone at the Moon or the brightest planet, then:</p>
+      <button id="calBtn">Calibrate on the Moon or brightest planet</button>
+    </details>
+  </section>
+</main>
+<script>
+  // controls stay hidden until Start, so screen reader users meet the Start button first
+  document.getElementById("controls2").hidden = true;
+  ["startPhone", "startPractice", "startHandsFree"].forEach((id) => document.getElementById(id).addEventListener("click", () => {
+    document.getElementById("controls2").hidden = false;
+  }));
+</script>
+<script src="data/sky-data.js"></script>
+<script src="data/stories.js"></script>
+<script src="data/faq.js"></script>
+<script src="lib/astronomy.browser.min.js"></script>
+<script src="js/astro.js"></script>
+<script src="js/sensors.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/commands.js"></script>
+<script src="js/listen.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

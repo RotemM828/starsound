@@ -233,9 +233,23 @@ const Commands = (() => {
     if (has(t, ["whats nearby", "what is nearby", "whats near it", "what is near it", "whats near that", "whats around it",
       "what is around it", "whats around here", "whats next to it", "what is next to it", "anything nearby", "anything else nearby",
       "what else is here", "what else is near", "nearby", "near it", "around it", "neighbors", "whats close to it"])) return r("nearby");
-    if (has(t, ["brightest", "the brightest thing", "brightest star", "brightest planet", "brightest object"])) return r("brightest");
-    if (has(t, ["narrower", "smaller circle", "focus in", "zoom in", "tighter", "fewer stars", "less stars"])) return r("focus", { dir: "narrower" });
-    if (has(t, ["wider", "bigger circle", "zoom out", "more stars", "broader"])) return r("focus", { dir: "wider" });
+    if (has(t, ["brightest", "the brightest thing", "brightest star", "brightest planet", "brightest object"]) && !has(t, ["only", "fewer", "just the"])) return r("brightest");
+    // settings by voice, so nobody has to find a menu
+    if (has(t, ["reset settings", "default settings", "reset my settings", "restore defaults"])) return r("resetSettings");
+    if (has(t, ["what are my settings", "my settings", "read my settings", "current settings", "settings"])) return r("settings");
+    if (has(t, ["fewer stars", "less stars", "only bright stars", "only the brightest", "brightest only"])) return r("detail", { dir: "fewer" });
+    if (has(t, ["more stars", "all the stars", "every star", "fainter stars"])) return r("detail", { dir: "more" });
+    if (has(t, ["narrower", "smaller circle", "focus in", "zoom in", "tighter"])) return r("focus", { dir: "narrower" });
+    if (has(t, ["wider", "bigger circle", "zoom out", "broader"])) return r("focus", { dir: "wider" });
+    if (has(t, ["constellation names", "naming constellations", "name constellations", "announce constellations", "say constellations"])) {
+      return r("conNames", { on: !has(t, ["stop", "off", "dont", "no", "turn off", "quiet", "disable"]) });
+    }
+    if (has(t, ["stop announcing", "quiet mode", "dont announce", "stop naming", "stop telling me", "announcements off",
+      "turn off announcements", "no announcements"])) return r("autoNames", { on: false });
+    if (has(t, ["start announcing", "announce stars", "name stars", "announcements on", "turn on announcements", "tell me what i pass"])) return r("autoNames", { on: true });
+    if (has(t, ["screen reader mode", "voiceover mode", "talkback mode", "use my screen reader"])) {
+      return r("screenReader", { on: !has(t, ["off", "stop", "disable", "dont"]) });
+    }
     if (has(t, ["my journal", "sky journal", "open journal", "show journal"])) return r("log", { period: "all" });
 
     // "tell me about X" / "tell me more"
@@ -307,7 +321,9 @@ const Commands = (() => {
     "About the thing you're on: Describe it. What's nearby. How far is it. When does it set. Take me there. " +
     "Learning: Tell me more. Tell me about Vega. What's the brightest thing in the sky. Play this constellation. And questions like, what is a light-year. " +
     "Your journal: What have I seen this month. What did I see last night. Have I seen Saturn. " +
-    "Sound: Pause. Resume. Louder. Quieter. Speak slower. Speak faster. Repeat. Narrower, or wider, to change how many stars you hear. " +
+    "Sound: Pause. Resume. Louder. Quieter. Speak slower. Speak faster. Repeat. " +
+    "Settings: What are my settings. Fewer stars, or more stars. Narrower, or wider. Stop announcing, or start announcing. " +
+    "Stop naming constellations, or name constellations. Reset settings. " +
     "Hands-free: say hands free on, then start each command with Hey Star. Say hands free off to stop.";
 
   return { parse, parseAlternatives, setVocabulary, matchTarget, matchFaq, normalize, editDistance, HELP, HELP_ALL };

@@ -55,6 +55,10 @@ A blind user is holding the phone up at the sky, so nothing requires finding a b
 | How far is it? / When does it set? / Is it up? / Take me there | Follow-ups: "it" means whatever you're on or just asked about |
 | What's the brightest thing in the sky? | Brightest object and brightest star up right now |
 | Narrower / Wider | Change how much of the sky you hear at once |
+| What are my settings? / Reset settings | Hear every setting read aloud, or go back to normal |
+| Fewer stars / More stars | Brightest only, bright, or many stars |
+| Stop announcing / Start announcing | Turn off or on "You're on Vega" when you hold still |
+| Stop naming constellations / Name constellations | Turn constellation names off or on |
 | What did I see last night? | Your sky journal, by night |
 | Tell me more / Tell me about Vega / Why is Mars red? | Stories |
 | Play this constellation | Constellation melody |

@@ -754,6 +754,34 @@
       case "here": return whatsHere();
       case "nearby": return nearby();
       case "brightest": return brightest();
+      case "settings": return settingsSummary();
+      case "resetSettings": {
+        el("focus").value = setFocus("normal"); setDetail("bright"); el("detail").value = "bright";
+        el("autoNames").checked = true; el("conNames").checked = true;
+        el("volume").value = Sound.setVolume(0.8); el("rate").value = Voice.setRate(1);
+        Prefs.save({ focus: "normal", detail: "bright", autoNames: true, conNames: true, volume: 0.8, rate: 1 });
+        return Voice.say("Settings are back to normal.");
+      }
+      case "detail": {
+        const order = ["fewest", "bright", "more"];
+        const cur = el("detail").value;
+        const next = order[Math.max(0, Math.min(2, order.indexOf(cur) + (cmd.dir === "more" ? 1 : -1)))];
+        setDetail(next); el("detail").value = next; Prefs.save({ detail: next });
+        const words = { fewest: "only the brightest stars", bright: "bright stars", more: "many stars" };
+        return Voice.say(next === cur ? `You're already hearing ${words[next]}.` : `Now playing ${words[next]}.`);
+      }
+      case "autoNames":
+        el("autoNames").checked = cmd.on; Prefs.save({ autoNames: cmd.on });
+        return Voice.say(cmd.on ? "I'll name bright stars and planets when you hold still on them." : "I'll stop naming stars as you point. Ask what am I pointing at, any time.");
+      case "conNames":
+        el("conNames").checked = cmd.on; Prefs.save({ conNames: cmd.on });
+        return Voice.say(cmd.on ? "I'll name constellations as you sweep." : "I'll stop naming constellations.");
+      case "screenReader":
+        el("srMode").checked = cmd.on; Prefs.save({ sr: cmd.on });
+        if (!cmd.on) Voice.setScreenReader(false);
+        Voice.say(cmd.on ? "Switching to your screen reader." : "Using StarSound's own voice.");
+        if (cmd.on) setTimeout(() => Voice.setScreenReader(true), 2500);
+        return;
       case "focus": {
         const order = ["narrow", "normal", "wide"];
         const cur = el("focus").value;
@@ -852,6 +880,17 @@
     };
     const msg = err in reasons ? reasons[err] : "Something went wrong with the microphone. Try again.";
     if (msg) { Sound.earcon("error"); Voice.say(msg); }
+  }
+
+  function settingsSummary() {
+    const pct = Math.round(Sound.getVolume() / 0.8 * 100);
+    const r = Voice.getRate();
+    const speed = r < 0.9 ? "slower than normal" : r > 1.1 ? "faster than normal" : "normal";
+    const stars = { fewest: "only the brightest", bright: "bright stars", more: "many stars" }[el("detail").value];
+    Voice.say(`Your settings. Star volume ${pct} percent. Speaking speed ${speed}. Listening circle ${el("focus").value}. ` +
+      `Stars you hear: ${stars}. Naming stars as you point: ${el("autoNames").checked ? "on" : "off"}. ` +
+      `Naming constellations: ${el("conNames").checked ? "on" : "off"}. Hands-free: ${Listen.handsFree() ? "on" : "off"}. ` +
+      `To change one, say things like: fewer stars, wider, speak slower, or stop announcing.`);
   }
 
   function setPaused(p) {

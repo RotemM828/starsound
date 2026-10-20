@@ -3,112 +3,313 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#05070f">
+  <meta name="theme-color" content="#070B1F">
   <meta name="description" content="StarSound lets blind and visually impaired people explore the night sky by sound.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;800&display=swap" rel="stylesheet">
   <title>StarSound</title>
   <style>
-    :root { color-scheme: dark; --bg: #05070f; --fg: #e8ecf6; --muted: #9aa5bd; --accent: #7fd1ff; --btn: #141a2c; }
+    :root {
+      --night: #070B1F;
+      --panel: rgba(12, 17, 44, 0.86);
+      --line: rgba(243, 230, 207, 0.14);
+      --cream: #F3E6CF;
+      --mist: #A7AECB;
+      --ember: #FF7A45;
+      --starlight: #9CC9FF;
+      --radius-l: 28px;
+      --radius-m: 16px;
+      --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+      color-scheme: dark;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.45 system-ui, -apple-system, sans-serif; }
-    main { max-width: 720px; margin: 0 auto; padding: 16px; }
-    h1 { font-size: 1.6rem; margin: 4px 0 2px; }
-    h2 { font-size: 1rem; color: var(--muted); font-weight: 600; margin: 18px 0 4px; }
-    p { margin: 6px 0; color: var(--muted); }
-    canvas { display: block; width: 100%; height: 40vh; min-height: 240px; border-radius: 12px; touch-action: none; margin: 12px 0; }
-    button, select { font: inherit; color: var(--fg); background: var(--btn); border: 1px solid #2a3350; border-radius: 12px; }
-    button { width: 100%; min-height: 64px; padding: 12px; margin: 6px 0; font-weight: 600; }
-    button.primary { background: #1d4f7a; border-color: #3a83bd; font-size: 1.15rem; min-height: 84px; }
-    #talkBtn { background: #1f6b4a; border-color: #3fae7c; font-size: 1.3rem; min-height: 96px; }
-    #talkBtn[aria-pressed="true"] { background: #8a2f2f; border-color: #e06464; }
-    #nextBtn { background: #6b4a1f; border-color: #c48a3f; }
-    button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
-    select { width: 100%; min-height: 56px; padding: 10px; }
-    label { display: block; margin: 10px 0; }
-    input[type=range] { width: 100%; min-height: 36px; }
-    details { margin-top: 14px; border-top: 1px solid #1f2740; padding-top: 8px; }
-    summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: var(--night); color: var(--cream);
+      font: 17px/1.5 var(--font); -webkit-font-smoothing: antialiased;
+      overflow: hidden; overscroll-behavior: none;
+    }
+    button, select, input { font: inherit; color: inherit; }
+    button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid var(--starlight); outline-offset: 3px; }
+    [hidden] { display: none !important; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    #status { font-size: 0.85rem; color: var(--muted); }
-    #speech { min-height: 3em; padding: 10px 12px; background: #0c1222; border-radius: 10px; color: var(--fg); }
-    input[type=number] { font: inherit; width: 6em; padding: 6px; background: var(--btn); color: var(--fg); border: 1px solid #2a3350; border-radius: 8px; }
+
+    /* the sky fills the screen; everything else floats on top of it */
+    #sky { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: max(14px, env(safe-area-inset-top)) 18px 14px;
+      pointer-events: none;
+    }
+    .topbar > * { pointer-events: auto; }
+    .wordmark { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 19px; letter-spacing: -0.01em; }
+    .wordmark svg { width: 22px; height: 22px; }
+    .icon-btn {
+      width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line);
+      background: rgba(7, 11, 31, 0.55); display: grid; place-items: center; backdrop-filter: blur(8px);
+    }
+    .icon-btn svg { width: 22px; height: 22px; }
+
+    /* ---------- welcome ---------- */
+    #startPanel {
+      position: fixed; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 24px 22px max(28px, env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(7,11,31,0) 0%, rgba(7,11,31,0.55) 38%, rgba(7,11,31,0.96) 72%);
+    }
+    .welcome { max-width: 520px; width: 100%; margin: 0 auto; }
+    .welcome h1 {
+      font-size: clamp(52px, 15vw, 88px); line-height: 0.92; letter-spacing: -0.04em; font-weight: 800; margin: 0 0 16px;
+      background: linear-gradient(180deg, #FFF6E6 10%, #F3C9A0 62%, var(--ember) 115%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .welcome .lede { font-size: 21px; line-height: 1.4; margin: 0 0 8px; color: var(--cream); max-width: 30ch; }
+    .welcome .sub { color: var(--mist); margin: 0 0 26px; max-width: 40ch; }
+    .start-main {
+      width: 100%; min-height: 64px; border: 0; border-radius: 999px; background: var(--cream); color: var(--night);
+      font-weight: 800; font-size: 19px; display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .start-main svg { width: 22px; height: 22px; }
+    .start-alt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .start-alt button {
+      min-height: 56px; border-radius: 999px; border: 1px solid var(--line); background: rgba(243,230,207,0.06);
+      font-weight: 600; font-size: 15px; padding: 8px 12px; line-height: 1.2;
+    }
+    .credit { margin: 18px 0 0; font-size: 13px; color: var(--mist); }
+
+    /* ---------- main panel ---------- */
+    #controls {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 2;
+      padding: 0 14px max(14px, env(safe-area-inset-bottom));
+      pointer-events: none;
+    }
+    .panel { position: relative; pointer-events: auto; max-width: 560px; margin: 0 auto; }
+    /* darken the sky behind the captions so text stays readable */
+    #controls::before {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: calc(100% + 60px); z-index: -1;
+      background: linear-gradient(180deg, rgba(7,11,31,0) 0%, rgba(7,11,31,0.82) 22%, rgba(7,11,31,0.94) 100%);
+      pointer-events: none;
+    }
+    .caption {
+      margin: 0 4px 12px; max-height: 26vh; overflow-y: auto;
+      font-size: 20px; line-height: 1.38; font-weight: 600; color: var(--cream);
+      text-shadow: 0 1px 12px rgba(7,11,31,0.9), 0 0 2px rgba(7,11,31,0.9);
+    }
+    .caption:empty::before { content: "Tap anywhere and ask a question."; color: var(--mist); font-weight: 400; }
+    .status-row { display: flex; align-items: center; gap: 10px; margin: 0 4px 10px; min-height: 30px; }
+    #status { font-size: 14px; color: var(--mist); flex: 1; }
+    #modePill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; border-radius: 999px;
+      background: rgba(255,122,69,0.16); border: 1px solid rgba(255,122,69,0.5); font-size: 14px; font-weight: 600; white-space: nowrap;
+    }
+    #modePill button { border: 0; border-radius: 999px; background: var(--ember); color: var(--night); font-weight: 800; font-size: 13px; padding: 4px 12px; }
+
+    .sheet {
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-l);
+      padding: 12px; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    }
+    #talkBtn {
+      position: relative; width: 100%; min-height: 76px; border-radius: 22px; border: 0;
+      background: var(--cream); color: var(--night); font-size: 21px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      transition: background-color .2s ease, box-shadow .2s ease;
+    }
+    #talkBtn::before {
+      content: ""; width: 24px; height: 24px; background: currentColor;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4Zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V20H8a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2h-3v-2.08A7 7 0 0 0 19 11Z'/%3E%3C/svg%3E") center / contain no-repeat;
+              mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4Zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V20H8a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2h-3v-2.08A7 7 0 0 0 19 11Z'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+    #talkBtn[aria-pressed="true"] { background: var(--ember); box-shadow: 0 0 0 6px rgba(255,122,69,0.22), 0 0 40px rgba(255,122,69,0.45); }
+    @media (prefers-reduced-motion: no-preference) {
+      #talkBtn[aria-pressed="true"] { animation: breathe 1.6s ease-in-out infinite; }
+      @keyframes breathe { 50% { box-shadow: 0 0 0 12px rgba(255,122,69,0.12), 0 0 56px rgba(255,122,69,0.5); } }
+    }
+    #nextBtn {
+      width: 100%; min-height: 56px; margin-top: 10px; border-radius: 18px; border: 1px solid rgba(255,122,69,0.6);
+      background: rgba(255,122,69,0.14); font-weight: 800; font-size: 18px;
+    }
+    .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .actions button {
+      min-height: 64px; border-radius: var(--radius-m); border: 1px solid transparent; background: rgba(243,230,207,0.06);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      font-size: 14px; font-weight: 600; padding: 8px 4px; line-height: 1.15;
+    }
+    .actions button:active { background: rgba(243,230,207,0.14); }
+    .actions svg { width: 22px; height: 22px; color: var(--starlight); }
+
+    /* ---------- sheets (Find, More, Settings) ---------- */
+    dialog {
+      width: min(560px, 100vw); max-height: 86vh; margin: auto auto 0; padding: 0; border: 1px solid var(--line);
+      border-radius: var(--radius-l) var(--radius-l) 0 0; background: #0D1230; color: var(--cream);
+    }
+    dialog::backdrop { background: rgba(4,6,18,0.6); }
+    @media (min-width: 700px) { dialog { margin: auto; border-radius: var(--radius-l); } }
+    .sheet-head {
+      position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 18px 10px; background: #0D1230; z-index: 1;
+    }
+    .sheet-head h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+    .sheet-body { padding: 4px 18px max(22px, env(safe-area-inset-bottom)); }
+    .search {
+      width: 100%; min-height: 54px; border-radius: 14px; border: 1px solid var(--line); background: rgba(243,230,207,0.06);
+      padding: 0 16px; font-size: 18px;
+    }
+    .group-title { margin: 18px 0 6px; font-size: 14px; color: var(--mist); font-weight: 600; }
+    .list { display: grid; gap: 2px; }
+    .list button, .row-btn {
+      width: 100%; min-height: 54px; text-align: left; border: 0; border-radius: 12px; background: transparent;
+      padding: 10px 12px; font-size: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .list button:hover, .row-btn:hover, .list button:focus-visible { background: rgba(243,230,207,0.07); }
+    .list .hint, .row-btn .hint { color: var(--mist); font-size: 14px; font-weight: 400; }
+    .row-btn { border-bottom: 1px solid var(--line); border-radius: 0; font-weight: 600;
+      flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; }
+    .row-btn[aria-pressed="true"] .hint { color: var(--ember); }
+    .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .setting label { flex: 1; }
+    .setting .hint { display: block; color: var(--mist); font-size: 14px; }
+    .setting input[type=checkbox] { width: 26px; height: 26px; accent-color: var(--ember); }
+    .setting input[type=range] { width: 46%; accent-color: var(--cream); }
+    .setting select, .setting input[type=number] {
+      min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: rgba(243,230,207,0.06); padding: 0 10px;
+    }
+    .setting input[type=number] { width: 90px; }
+    .secondary {
+      width: 100%; min-height: 52px; margin-top: 14px; border-radius: 999px; border: 1px solid var(--line);
+      background: rgba(243,230,207,0.06); font-weight: 600;
+    }
+    .note { color: var(--mist); font-size: 14px; margin: 14px 0 0; }
+
+    @media (min-width: 700px) {
+      #controls { left: auto; right: 24px; bottom: 24px; width: 420px; padding: 0; }
+      #controls::before { left: -24px; right: -24px; bottom: -24px; border-radius: 32px 0 0 0; }
+      .caption { font-size: 22px; }
+    }
   </style>
 </head>
 <body>
-<main>
-  <h1>StarSound</h1>
-  <p>Hear the night sky. Point your phone up; every star in view plays a note. Brighter stars are louder, blue stars are higher, red stars are lower. Use headphones.</p>
+  <canvas id="sky" aria-hidden="true"></canvas>
 
-  <section id="startPanel" aria-label="Start">
-    <button id="startPhone" class="primary">Start: point my phone at the sky</button>
-    <button id="startHandsFree">Start hands-free (phone on a headband or held up; say "Hey Star…")</button>
-    <button id="startPractice">Practice mode (no motion sensors, use arrow keys)</button>
+  <header class="topbar">
+    <div class="wordmark" aria-hidden="true">
+      <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><defs><linearGradient id="spark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF6E6"/><stop offset=".6" stop-color="#FF7A45"/><stop offset="1" stop-color="#3B3F8F"/></linearGradient></defs><path fill="url(#spark)" d="M12 1.5c.6 4.9 2.9 8.6 9.5 10.5-6.6 1.9-8.9 5.6-9.5 10.5-.6-4.9-2.9-8.6-9.5-10.5C9.1 10.1 11.4 6.4 12 1.5Z"/></svg>
+      StarSound
+    </div>
+    <button class="icon-btn" id="openSettings" aria-label="Settings" hidden>
+      <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+    </button>
+  </header>
+
+  <section id="startPanel" aria-label="Welcome">
+    <div class="welcome">
+      <h1>StarSound</h1>
+      <p class="lede">Hear the night sky.</p>
+      <p class="sub">Point your phone up and every star in view plays a note: brighter stars are louder, blue stars sound higher, red stars lower. Ask out loud to find planets, stars and constellations. Headphones help.</p>
+      <button id="startPhone" class="start-main">
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/></svg>
+        Start, and point at the sky
+      </button>
+      <div class="start-alt">
+        <button id="startHandsFree">Hands-free<br><span style="font-weight:400;color:var(--mist)">say "Hey Star…"</span></button>
+        <button id="startPractice">Practice<br><span style="font-weight:400;color:var(--mist)">on a computer</span></button>
+      </div>
+      <p class="credit">Built for blind and visually impaired stargazers. Works through clouds, and even in daylight.</p>
+    </div>
   </section>
 
   <section id="controls" hidden aria-label="Controls">
-    <button id="talkBtn" aria-pressed="false" aria-describedby="talkHint">Talk</button>
-    <p id="talkHint">Tap Talk (or anywhere on the screen), then ask, like "Find Jupiter", "What am I pointing at?", or "Is Saturn up?" Say "help" for everything you can ask.</p>
-    <button id="handsFreeBtn" aria-pressed="false">Hands-free: off</button>
-    <button id="nextBtn" hidden>Next stop</button>
+    <div class="panel">
+      <div id="speech" class="caption" role="status" aria-live="off"></div>
+      <div class="status-row">
+        <div id="status" aria-hidden="true"></div>
+        <div id="modePill" hidden><span id="modeText"></span><button id="stopBtn">Stop</button></div>
+      </div>
+      <div class="sheet">
+        <button id="talkBtn" aria-pressed="false" aria-describedby="talkHelp">Tap to talk</button>
+        <p id="talkHelp" class="visually-hidden">Then ask a question, like: what am I pointing at, or, find Jupiter. You can also tap anywhere on the screen to talk.</p>
+        <button id="nextBtn" hidden>Next stop</button>
+        <div class="actions">
+          <button id="hereBtn">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+            What's here?
+          </button>
+          <button id="tonightBtn">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M14 3.5A8.5 8.5 0 1 0 20.5 14 6.5 6.5 0 0 1 14 3.5Z"/><path d="M19 3l.6 1.4L21 5l-1.4.6L19 7l-.6-1.4L17 5l1.4-.6Z"/></svg>
+            Tonight
+          </button>
+          <button id="openFind">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+            Find
+          </button>
+          <button id="tourBtn">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 18h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6"/></svg>
+            Tour
+          </button>
+          <button id="moonBtn">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor"/></svg>
+            Moon
+          </button>
+          <button id="openMore">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            More
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <canvas id="sky" aria-hidden="true"></canvas>
-  <div id="status" aria-hidden="true"></div>
-  <div id="speech" role="status" aria-live="off"></div>
+  <!-- Find -->
+  <dialog id="findSheet" aria-labelledby="findTitle">
+    <div class="sheet-head"><h2 id="findTitle">Find</h2><button class="icon-btn" data-close aria-label="Close"><span aria-hidden="true">✕</span></button></div>
+    <div class="sheet-body">
+      <label class="visually-hidden" for="findSearch">Search planets, stars and constellations</label>
+      <input id="findSearch" class="search" type="search" placeholder="Jupiter, Vega, Orion…" autocomplete="off">
+      <div id="findList"></div>
+      <!-- kept for the app logic: the list above sets this and presses Find -->
+      <select id="target" hidden></select>
+      <button id="findBtn" hidden>Start finding</button>
+    </div>
+  </dialog>
 
-  <section id="controls2" aria-label="More controls">
-    <div class="row">
-      <button id="hereBtn">What am I pointing at?</button>
-      <button id="tonightBtn">What's up tonight?</button>
-      <button id="tourBtn">Tour tonight's sky</button>
-      <button id="moreBtn">Tell me more</button>
-      <button id="conBtn">Play this constellation</button>
-      <button id="pauseBtn" aria-pressed="false">Pause sounds</button>
-      <button id="moonBtn">Moon tonight</button>
-      <button id="logBtn">What have I seen this month?</button>
+  <!-- More -->
+  <dialog id="moreSheet" aria-labelledby="moreTitle">
+    <div class="sheet-head"><h2 id="moreTitle">More</h2><button class="icon-btn" data-close aria-label="Close"><span aria-hidden="true">✕</span></button></div>
+    <div class="sheet-body">
+      <button class="row-btn" id="moreBtn" data-closes>Tell me more <span class="hint">story of what you just heard</span></button>
+      <button class="row-btn" id="conBtn" data-closes>Play this constellation <span class="hint">its shape as a melody</span></button>
+      <button class="row-btn" id="logBtn" data-closes>What have I seen? <span class="hint">this month's log</span></button>
+      <button class="row-btn" id="handsFreeBtn" aria-pressed="false">Hands-free: off</button>
+      <button class="row-btn" id="pauseBtn" aria-pressed="false" data-closes>Pause sounds</button>
+      <button class="row-btn" id="helpBtn" data-closes>What can I say? <span class="hint">all voice commands</span></button>
+      <button class="row-btn" id="tutorialBtn" data-closes>How does it work? <span class="hint">what the sounds mean</span></button>
     </div>
-    <h2>Find something</h2>
-    <label class="visually-hidden" for="target">Choose what to find</label>
-    <select id="target"></select>
-    <div class="row">
-      <button id="findBtn">Start finding</button>
-      <button id="stopBtn">Stop</button>
-    </div>
-    <div class="row">
-      <button id="helpBtn">Voice commands</button>
-      <button id="tutorialBtn">How does it work?</button>
-    </div>
+  </dialog>
 
-    <details>
-      <summary>Settings</summary>
-      <label><input type="checkbox" id="srMode"> Speak through my screen reader instead of the app voice</label>
-      <label><input type="checkbox" id="conNames" checked> Say constellation names as I sweep</label>
-      <label><input type="checkbox" id="below"> Include stars below the horizon</label>
-      <label>Star volume <input type="range" id="volume" min="0" max="1.5" step="0.05" value="0.8"></label>
-      <label>Speaking speed <input type="range" id="rate" min="0.6" max="1.8" step="0.05" value="1"></label>
-      <label>Sky time
-        <select id="timeMode">
-          <option value="now">Right now</option>
-          <option value="tonight">Tonight at 9 PM</option>
-        </select>
-      </label>
-      <label>Magnetic declination (degrees east) <input type="number" id="decl" value="11.5" step="0.5"></label>
-      <p>Compass off? With a sighted helper, point the phone at the Moon or the brightest planet, then:</p>
-      <button id="calBtn">Calibrate on the Moon or brightest planet</button>
-    </details>
-  </section>
-</main>
-<script>
-  // controls stay hidden until Start, so screen reader users meet the Start button first
-  document.getElementById("controls2").hidden = true;
-  ["startPhone", "startPractice", "startHandsFree"].forEach((id) => document.getElementById(id).addEventListener("click", () => {
-    document.getElementById("controls2").hidden = false;
-  }));
-</script>
+  <!-- Settings -->
+  <dialog id="settingsSheet" aria-labelledby="settingsTitle">
+    <div class="sheet-head"><h2 id="settingsTitle">Settings</h2><button class="icon-btn" data-close aria-label="Close"><span aria-hidden="true">✕</span></button></div>
+    <div class="sheet-body">
+      <div class="setting"><label for="srMode">Use my screen reader<span class="hint">Speak through VoiceOver or TalkBack instead of the app's voice</span></label><input type="checkbox" id="srMode"></div>
+      <div class="setting"><label for="conNames">Name constellations as I sweep</label><input type="checkbox" id="conNames" checked></div>
+      <div class="setting"><label for="below">Include stars below the horizon</label><input type="checkbox" id="below"></div>
+      <div class="setting"><label for="volume">Star volume</label><input type="range" id="volume" min="0" max="1.5" step="0.05" value="0.8"></div>
+      <div class="setting"><label for="rate">Speaking speed</label><input type="range" id="rate" min="0.6" max="1.8" step="0.05" value="1"></div>
+      <div class="setting"><label for="timeMode">Sky time</label>
+        <select id="timeMode"><option value="now">Right now</option><option value="tonight">Tonight at 9 PM</option></select></div>
+      <div class="setting"><label for="decl">Compass correction<span class="hint">Magnetic declination in degrees east. About 11.5 in Southern California.</span></label><input type="number" id="decl" value="11.5" step="0.5"></div>
+      <p class="note">If directions feel off, have a sighted helper point the phone at the Moon or the brightest planet, then press:</p>
+      <button class="secondary" id="calBtn">Calibrate on the Moon or brightest planet</button>
+    </div>
+  </dialog>
+
 <script src="sky-data.js"></script>
 <script src="stories.js"></script>
 <script src="faq.js"></script>
@@ -119,5 +320,6 @@
 <script src="commands.js"></script>
 <script src="listen.js"></script>
 <script src="app.js"></script>
+<script src="ui.js"></script>
 </body>
 </html>

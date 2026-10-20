@@ -115,69 +115,193 @@ const Sound = (() => {
   }
   function getVolume() { return volume; }
 
+  // lower the star sounds while the app is talking, so speech is easy to understand
+  let ducked = false;
+  function duck(on) {
+    if (!master || on === ducked) return;
+    ducked = on;
+    const t = ctx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setTargetAtTime(on ? volume * 0.25 : volume, t, 0.08);
+  }
+
   // Android phones can buzz; iPhones ignore this.
   function buzz(pattern) {
     try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (_) {}
   }
 
-  return { init, ping, tick, chime, earcon, buzz, pitchFromColor, loudnessFromMagnitude, setVolume, getVolume };
+  return { init, ping, tick, chime, earcon, buzz, duck, pitchFromColor, loudnessFromMagnitude, setVolume, getVolume };
 })();
 
-// Speech: the app's own voice, or the user's screen reader (VoiceOver/TalkBack).
+// Speech: the app's own voice (text-to-speech), or the user's screen reader.
+//
+// Browsers have several speech bugs, and each is handled here:
+//  - iPhone/iPad stay silent unless the first speech starts directly from a tap,
+//    so unlock() speaks a silent word inside the Start and Talk taps.
+//  - Chrome cuts off utterances after about 15 seconds, so long answers are split
+//    into sentences and queued one after another.
+//  - Safari can drop speech that starts right after cancel(), so new speech waits a moment.
+//  - Utterances sometimes never report that they finished, so a timer moves the queue on.
+//  - Some computers list joke voices first ("Bad News", "Zarvox"); we pick a clear voice.
 const Voice = (() => {
   let useScreenReader = false;
   let live = null;
-  let lastText = "", lastAt = 0;
+  let lastText = "", lastAt = 0, lastSpoken = "";
+  let lastUserAt = 0;        // when the app last answered the user
+  let srBusyUntil = 0;       // screen-reader mode: estimated time the screen reader finishes
+  let rate = 1.0;
+  let queue = [];            // sentences waiting to be spoken
+  let current = null;        // the utterance being spoken now
+  let watchdog = null;
+  let chosenVoice = null;
+  const synth = typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis : null;
+
+  const NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|junior|organ|superstar|trinoids|whisper|wobble|zarvox|deranged|hysterical|grandma|grandpa|eddy|flo\b|reed|rocko|sandy|shelley|ralph|fred|kathy|princess/i;
+  const PREFERRED = [/^samantha/i, /^ava\b/i, /^allison/i, /^alex$/i, /^susan/i, /google us english/i,
+    /microsoft (aria|jenny|guy).*natural/i, /microsoft (aria|jenny|zira|david)/i, /^karen/i, /^daniel/i, /^moira/i, /^tessa/i];
+
+  function pickVoice() {
+    if (!synth) return;
+    const voices = synth.getVoices().filter((v) => /^en([-_]|$)/i.test(v.lang) && !NOVELTY.test(v.name));
+    if (!voices.length) return;
+    for (const p of PREFERRED) {
+      const v = voices.find((x) => p.test(x.name));
+      if (v) { chosenVoice = v; return; }
+    }
+    chosenVoice = voices.find((v) => v.default) || voices.find((v) => /en[-_]US/i.test(v.lang)) || voices[0];
+  }
+  if (synth) {
+    pickVoice();
+    if (synth.addEventListener) synth.addEventListener("voiceschanged", pickVoice);
+    else synth.onvoiceschanged = pickVoice;
+  }
 
   function attach(liveRegion) { live = liveRegion; }
+
   // When the app voice is speaking, the live region is silenced so VoiceOver/TalkBack
   // users don't hear everything twice; in screen-reader mode the roles swap.
   function setScreenReader(on) {
     useScreenReader = on;
     if (live) live.setAttribute("aria-live", on ? "assertive" : "off");
-    if (on && "speechSynthesis" in window) speechSynthesis.cancel();
+    if (on) cancel();
   }
 
-  let rate = 1.0;
-  let lastSpoken = "";
   function setRate(r) { rate = Math.min(1.8, Math.max(0.6, r)); return rate; }
   function getRate() { return rate; }
-  function repeat() { if (lastSpoken) say(lastSpoken, { force: true }); }
-  function cancel() { if ("speechSynthesis" in window) speechSynthesis.cancel(); }
+  function voiceName() { return chosenVoice ? chosenVoice.name : "default"; }
 
-  // pick a clear English voice once the browser has loaded its voice list
-  let chosenVoice = null;
-  function pickVoice() {
-    if (!("speechSynthesis" in window)) return;
-    const voices = speechSynthesis.getVoices().filter((v) => /^en(-|_|$)/i.test(v.lang));
-    chosenVoice = voices.find((v) => v.localService && /en-US/i.test(v.lang)) ||
-      voices.find((v) => /en-US/i.test(v.lang)) || voices[0] || null;
-  }
-  if ("speechSynthesis" in window) {
-    pickVoice();
-    speechSynthesis.onvoiceschanged = pickVoice;
+  // Must be called inside a tap: lets iPhones speak later, after any awaits.
+  function unlock() {
+    if (!synth || useScreenReader) return;
+    try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); } catch (_) {}
   }
 
-  function say(text, { interrupt = true, force = false } = {}) {
-    const now = Date.now();
-    if (!force && text === lastText && now - lastAt < 1500) return; // avoid stutter repeats
-    lastText = text; lastAt = now; lastSpoken = text;
-    if (live) live.textContent = text; // always mirror for sighted companions
-    if (useScreenReader) {
-      if (live) live.setAttribute("aria-live", interrupt ? "assertive" : "polite");
-      return;
+  // tidy text so it sounds right when read aloud
+  function clean(text) {
+    return String(text)
+      .replace(/°/g, " degrees")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // split into sentences, then pack them into pieces under ~200 characters
+  function chunks(text) {
+    const sentences = text.match(/[^.!?]+[.!?]+["')]?|[^.!?]+$/g) || [text];
+    const out = [];
+    let cur = "";
+    for (let s of sentences) {
+      s = s.trim();
+      if (!s) continue;
+      while (s.length > 220) { // a very long sentence: break at a comma or semicolon
+        let cut = Math.max(s.lastIndexOf(", ", 200), s.lastIndexOf("; ", 200));
+        if (cut < 60) cut = s.lastIndexOf(" ", 200);
+        if (cur) { out.push(cur); cur = ""; }
+        out.push(s.slice(0, cut + 1).trim());
+        s = s.slice(cut + 1).trim();
+      }
+      if ((cur + " " + s).length > 200 && cur) { out.push(cur); cur = s; }
+      else cur = cur ? cur + " " + s : s;
     }
-    if (!("speechSynthesis" in window)) return;
-    if (interrupt) speechSynthesis.cancel();
+    if (cur) out.push(cur);
+    return out;
+  }
+
+  // auto: an automatic announcement (a star name while sweeping, a hint). Automatic speech
+  // never talks over an answer the user asked for, and never repeats itself back to back.
+  function say(text, { interrupt = true, force = false, auto = false } = {}) {
+    if (!text) return false;
+    const now = Date.now();
+    if (auto) {
+      if (speaking() || now - lastUserAt < 2500) return false;
+      if (!force && text === lastText && now - lastAt < 1500) return false;
+    } else {
+      lastUserAt = now;
+    }
+    lastText = text; lastAt = now; lastSpoken = text;
+    if (useScreenReader) srBusyUntil = now + (text.split(/\s+/).length / 2.6) * 1000 / rate + 500;
+    if (live) live.textContent = text; // captions for sighted companions and low-vision users
+    if (useScreenReader) {
+      if (live) {
+        live.setAttribute("aria-live", interrupt ? "assertive" : "polite");
+        live.textContent = ""; // re-set so screen readers announce repeats too
+        setTimeout(() => { live.textContent = text; }, 30);
+      }
+      return true;
+    }
+    if (!synth) return true;
+    const parts = chunks(clean(text));
+    if (interrupt) {
+      queue = [];
+      current = null;
+      synth.cancel();
+      queue.push(...parts);
+      setTimeout(pump, 80); // Safari drops speech started right after cancel()
+    } else {
+      queue.push(...parts);
+      pump();
+    }
+    return true;
+  }
+
+  function pump() {
+    if (!synth || current || !queue.length) return;
+    const text = queue.shift();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = rate;
+    u.lang = chosenVoice ? chosenVoice.lang : "en-US";
     if (chosenVoice) u.voice = chosenVoice;
-    speechSynthesis.speak(u);
+    current = u;
+    const done = () => {
+      if (current !== u) return;
+      current = null;
+      clearTimeout(watchdog);
+      pump();
+    };
+    u.onend = done;
+    u.onerror = done;
+    // if the browser never reports the end, move on after the expected time
+    // (the browser queues speech itself, so moving on early never cuts a sentence off)
+    const expected = (text.length / (16 * rate)) * 1000 + 1500;
+    clearTimeout(watchdog);
+    watchdog = setTimeout(done, expected);
+    synth.speak(u);
+    if (synth.paused) synth.resume();
   }
+
+  function cancel() {
+    queue = [];
+    current = null;
+    clearTimeout(watchdog);
+    if (synth) synth.cancel();
+  }
+
+  function repeat() { if (lastSpoken) say(lastSpoken, { force: true }); }
 
   function speaking() {
-    return !useScreenReader && "speechSynthesis" in window && speechSynthesis.speaking;
+    if (useScreenReader) return Date.now() < srBusyUntil;
+    if (!synth) return false;
+    return !!current || queue.length > 0 || synth.speaking;
   }
 
-  return { attach, say, setScreenReader, speaking, setRate, getRate, repeat, cancel };
+  return { attach, say, setScreenReader, speaking, setRate, getRate, repeat, cancel, unlock, voiceName, chunks, clean };
 })();

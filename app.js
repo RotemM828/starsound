@@ -117,6 +117,45 @@
 
   function capitalize(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
 
+  // ---------- constellation names people understand ----------
+  // Latin names alone ("Canes Venatici") mean little when heard, so we add the meaning.
+  const CON_EN = {
+    And: "the chained princess", Ant: "the air pump", Aps: "the bird of paradise", Aqr: "the water bearer",
+    Aql: "the eagle", Ara: "the altar", Ari: "the ram", Aur: "the charioteer", Boo: "the herdsman",
+    Cae: "the chisel", Cam: "the giraffe", Cnc: "the crab", CVn: "the hunting dogs", CMa: "the great dog",
+    CMi: "the little dog", Cap: "the sea goat", Car: "the keel of a ship", Cas: "the queen", Cen: "the centaur",
+    Cep: "the king", Cet: "the sea monster", Cha: "the chameleon", Cir: "the drawing compass", Col: "the dove",
+    Com: "Berenice's hair", CrA: "the southern crown", CrB: "the northern crown", Crv: "the crow", Crt: "the cup",
+    Cru: "the southern cross", Cyg: "the swan", Del: "the dolphin", Dor: "the swordfish", Dra: "the dragon",
+    Equ: "the little horse", Eri: "the river", For: "the furnace", Gem: "the twins", Gru: "the crane",
+    Her: "the hero", Hor: "the clock", Hya: "the water snake", Hyi: "the little water snake", Ind: "the Indian",
+    Lac: "the lizard", Leo: "the lion", LMi: "the little lion", Lep: "the hare", Lib: "the scales", Lup: "the wolf",
+    Lyn: "", Lyr: "the lyre", Men: "the table mountain", Mic: "the microscope", Mon: "the unicorn", Mus: "the fly",
+    Nor: "the carpenter's square", Oct: "the octant", Oph: "the serpent bearer", Ori: "the hunter", Pav: "the peacock",
+    Peg: "the winged horse", Per: "the hero", Phe: "", Pic: "the painter's easel", Psc: "the fishes",
+    PsA: "the southern fish", Pup: "the stern of a ship", Pyx: "the ship's compass", Ret: "the net", Sge: "the arrow",
+    Sgr: "the archer", Sco: "the scorpion", Scl: "the sculptor", Sct: "the shield", Ser: "the serpent",
+    Sex: "the sextant", Tau: "the bull", Tel: "the telescope", Tri: "the triangle", TrA: "the southern triangle",
+    Tuc: "the toucan", UMa: "the great bear, home of the Big Dipper", UMi: "the little bear, home of the North Star",
+    Vel: "the sails", Vir: "the maiden", Vol: "the flying fish", Vul: "the little fox",
+  };
+  function conSpoken(id) {
+    const name = S.cons[id] || id;
+    return CON_EN[id] ? `${name}, ${CON_EN[id]}` : name;
+  }
+
+  // Where is something compared with where the phone points? ("up and to your left")
+  function relativeWords(f, vec) {
+    const p = Astro.enuToAltAz(f), t = Astro.enuToAltAz(vec);
+    const dAz = ((t.az - p.az + 540) % 360) - 180;
+    const dAlt = t.alt - p.alt;
+    const parts = [];
+    if (dAlt > 4) parts.push(dAlt > 20 ? "well above where you're pointing" : "a little higher");
+    else if (dAlt < -4) parts.push(dAlt < -20 ? "well below where you're pointing" : "a little lower");
+    if (Math.abs(dAz) > 4 && t.alt < 80) parts.push(Math.abs(dAz) > 20 ? `to your ${dAz > 0 ? "right" : "left"}` : `slightly to your ${dAz > 0 ? "right" : "left"}`);
+    return parts.length ? parts.join(" and ") : "right where you're pointing";
+  }
+
   // ---------- stories ("tell me more") ----------
   const STORIES = window.STORIES || { stars: {}, planets: {}, cons: {} };
 
@@ -138,7 +177,7 @@
     if (!topic) { Voice.say("Point at something first, then say tell me more."); return; }
     if (topic.kind === "con") {
       const s = STORIES.cons[topic.id];
-      Voice.say(s || `${S.cons[topic.id]}. I don't have a story for this constellation yet.`);
+      Voice.say(s || `${conSpoken(topic.id)}. I don't have a story for this constellation yet.`);
       return;
     }
     const o = app.byId.get(topic.id);
@@ -190,11 +229,14 @@
     const now = performance.now();
     const dt = Math.max(1, now - app.lastFrame) / 1000;
     app.lastFrame = now;
+    idleDrift();
     const f = Sensors.update();
     app.speed = app.speed * 0.8 + 0.2 * (Astro.angleBetween(f, app.lastVec) / dt);
     app.lastVec = f;
     draw(f);
     updateStatus(f);
+    const talking = Voice.speaking();
+    if (talking !== app.ducked) { app.ducked = talking; Sound.duck(talking); }
     if (!app.running || app.paused || app.listening) return;
 
     if (app.mode === "find") findStep(f, now);
@@ -207,7 +249,7 @@
     const showBelow = el("below").checked;
 
     if (aimAlt < -5 && !showBelow) {
-      if (!app.belowWarned) { Voice.say("Below the horizon. Aim higher."); app.belowWarned = true; }
+      if (!app.belowWarned && Voice.say("Below the horizon. Aim higher.", { auto: true })) app.belowWarned = true;
       return;
     }
     if (aimAlt > 0) app.belowWarned = false;
@@ -243,18 +285,18 @@
     else if (app.lock.id !== lockObj.id) { app.lock = { id: lockObj.id, since: now }; }
     else if (now - app.lock.since > 450) {
       const last = app.announced.get(lockObj.id) ?? -Infinity;
-      if (now - last > 15000) {
-        app.announced.set(lockObj.id, now);
-        app.lastTopic = { kind: "obj", id: lockObj.id };
-        logObject(lockObj);
+      if (now - last > 45000) {
         let text = describe(lockObj);
-        if (!app.storyHintGiven && hasStory(lockObj)) {
-          text += " Say tell me more for its story.";
-          app.storyHintGiven = true;
+        const hint = !app.storyHintGiven && hasStory(lockObj);
+        if (hint) text += " Say tell me more for its story.";
+        if (Voice.say(text, { auto: true })) { // skipped if you're listening to an answer
+          app.announced.set(lockObj.id, now);
+          app.lastTopic = { kind: "obj", id: lockObj.id };
+          logObject(lockObj);
+          if (hint) app.storyHintGiven = true;
+          Sound.buzz(40);
+          return;
         }
-        Voice.say(text);
-        Sound.buzz(40);
-        return;
       }
     }
 
@@ -262,10 +304,11 @@
     if (el("conNames").checked && app.speed < 10) {
       const con = constellationAt(f);
       if (con !== app.lastCon) { app.lastCon = con; app.conSince = now; }
-      else if (con && now - app.conSince > 1200 && app.announcedCon !== con && !Voice.speaking()) {
-        app.announcedCon = con;
-        app.lastTopic = { kind: "con", id: con };
-        Voice.say(S.cons[con], { interrupt: false });
+      else if (con && now - app.conSince > 1200 && app.announcedCon !== con) {
+        if (Voice.say(conSpoken(con), { interrupt: false, auto: true })) {
+          app.announcedCon = con;
+          app.lastTopic = { kind: "con", id: con };
+        }
       }
     }
   }
@@ -304,10 +347,11 @@
       const dAz = ((ta.az - p.az + 540) % 360) - 180;
       const dAlt = ta.alt - p.alt;
       const hints = [];
-      if (Math.abs(dAz) > 5 && ta.alt < 80) hints.push(`${dAz > 0 ? "Turn right" : "Turn left"} ${Math.round(Math.abs(dAz) / 5) * 5}`);
-      if (Math.abs(dAlt) > 5) hints.push(`${dAlt > 0 ? "Raise" : "Lower"} ${Math.round(Math.abs(dAlt) / 5) * 5}`);
-      if (hints.length) Voice.say(hints.join(". ") + ".", { interrupt: false });
-      app.nextHint = now + 4500;
+      const deg = (x) => Math.max(5, Math.round(Math.abs(x) / 5) * 5);
+      if (Math.abs(dAz) > 5 && ta.alt < 80) hints.push(`turn ${dAz > 0 ? "right" : "left"} ${deg(dAz)} degrees`);
+      if (Math.abs(dAlt) > 5) hints.push(`${dAlt > 0 ? "raise" : "lower"} the phone ${deg(dAlt)} degrees`);
+      if (hints.length) Voice.say(angle < 15 ? `Almost there. ${capitalize(hints.join(", and "))}.` : `${capitalize(hints.join(", and "))}.`, { interrupt: false, auto: true });
+      app.nextHint = now + (angle < 15 ? 3000 : 5000);
     }
   }
 
@@ -354,6 +398,15 @@
   function findTarget(target, { quiet = false } = {}) {
     if (!target) return;
     if (target.type === "object" && !app.byId.get(target.id)) return;
+    if (target.type !== "dir") {
+      const v = targetVec(target);
+      if (v[2] < -0.02) { // below the horizon: say when it rises instead of pointing at the ground
+        const rise = nextRiseSet(target, "rise");
+        Voice.say(`${capitalize(target.label)} is below the horizon right now, so you can't point at it.${rise ? ` It rises ${timeWords(rise)}.` : ""} Say what's up tonight to hear what you can find.`);
+        if (app.tour) nextStop();
+        return;
+      }
+    }
     app.melodyToken++; app.playingMelody = false;
     app.target = target;
     app.mode = "find"; app.nextTick = 0;
@@ -364,9 +417,8 @@
       intro = `Finding ${target.label}. Follow the ticking; it gets faster as you get closer.`;
     } else {
       const where = whereWords({ vec: tv });
-      intro = `Finding ${target.label}. It is ${where}.`;
-      if (tv[2] < 0) intro += " It's below the horizon right now, so you'll be pointing at the ground.";
-      intro += quiet ? "" : " Follow the ticking; it gets faster as you get closer.";
+      intro = `Finding ${target.label}. It's ${where}, ${relativeWords(Sensors.state.vec, tv)}.`;
+      intro += quiet ? "" : " Follow the ticking. It gets faster as you get closer.";
     }
     Voice.say(intro);
     app.nextHint = performance.now() + 6000;
@@ -451,7 +503,7 @@
     app.playingMelody = true;
     app.announcedCon = conId;
     app.lastTopic = { kind: "con", id: conId };
-    Voice.say(`The shape of ${S.cons[conId]}.`);
+    Voice.say(`The shape of ${conSpoken(conId)}.`);
     await wait(1100);
     const basis = Astro.viewBasis(Sensors.state.vec);
     for (const seg of S.lines[conId]) {
@@ -478,7 +530,7 @@
     } else if (target.type === "con") {
       app.lastTopic = { kind: "con", id: target.id };
       const where = whereWords({ vec: targetVec(target) });
-      Voice.say(`${target.label} is ${where}. ${STORIES.cons[target.id] || ""}`);
+      Voice.say(`${conSpoken(target.id)}. It is ${where}. ${STORIES.cons[target.id] || ""}`);
     } else {
       findTarget(target);
     }
@@ -522,6 +574,7 @@
       case "more": return tellMore();
       case "stop": return stopAll();
       case "help": return Voice.say(Commands.HELP);
+      case "helpAll": return Voice.say(Commands.HELP_ALL);
       case "tutorial": return tutorial();
       case "pause": return setPaused(true);
       case "resume": return setPaused(false);
@@ -556,6 +609,7 @@
       return;
     }
     Voice.cancel();
+    Voice.unlock();
     Listen.start();
   }
 
@@ -575,7 +629,7 @@
     }
     if (state === "unsupported") return;
     app.listening = false;
-    el("talkBtn").textContent = "Talk";
+    el("talkBtn").textContent = "Tap to talk";
     el("talkBtn").setAttribute("aria-pressed", "false");
     if (state === "end" && !err) return;
     const reasons = {
@@ -871,22 +925,26 @@
 
   // ---------- sky tonight ----------
   function skyTonight() {
-    const up = app.objects.filter((o) => o.vec[2] > 0.09); // above ~5°
+    // During the day, "tonight" means this evening, so describe the sky at 9 PM.
+    const daytime = app.timeMode === "now" && solarAltitude() > -6;
+    const saved = app.timeMode;
+    if (daytime) { app.timeMode = "tonight"; rebuildSky(); }
+    const up = app.objects.filter((o) => o.vec[2] > 0.09); // above about 5 degrees
     const bodies = up.filter((o) => o.kind !== "star");
-    const stars = up.filter((o) => o.kind === "star" && o.star.name).sort((a, b) => a.mag - b.mag).slice(0, 4);
+    const stars = up.filter((o) => o.kind === "star" && o.star.name).sort((a, b) => a.mag - b.mag).slice(0, 3);
     const parts = [];
-    const when = app.timeMode === "tonight" ? "At 9 PM tonight" : "Right now";
-    const sunAlt = solarAltitude();
-    if (app.timeMode === "now" && sunAlt > -6) parts.push("It is daytime or twilight, but StarSound still knows where every star is");
+    const when = app.timeMode === "tonight" ? "At 9 tonight" : "Right now";
     const label = (b) => (b.name === "Moon" ? "the Moon" : b.name);
-    if (bodies.length) parts.push(`${when}, ${bodies.map((b) => `${label(b)} is ${whereWords(b)}`).join("; ")}`);
-    else parts.push(`${when}, no planets are up`);
-    if (stars.length) parts.push(`Bright stars up: ${stars.map((s) => `${s.star.name}, ${Astro.compassWord(Astro.enuToAltAz(s.vec).az)}`).join("; ")}`);
+    if (bodies.length) parts.push(`${when}, ${listWords(bodies.map((b) => `${label(b)} is ${whereWords(b)}`))}`);
+    else parts.push(`${when}, the Moon and the bright planets are all below the horizon`);
+    if (stars.length) parts.push(`The brightest stars up are ${listWords(stars.map((s) => `${s.star.name}, in the ${Astro.compassWord(Astro.enuToAltAz(s.vec).az)}`))}`);
     const ph = Astro.moonPhase(app.date);
-    if (ph) parts.push(`The Moon is ${/moon|quarter/.test(ph.name) ? "at" : "a"} ${ph.name}`);
+    if (ph) parts.push(`The Moon is ${/moon/.test(ph.name) ? "a " + ph.name : /quarter/.test(ph.name) ? "at " + ph.name : "a " + ph.name + " moon"}`);
     parts.push("Say take me on a tour to visit the highlights");
+    if (daytime) { app.timeMode = saved; rebuildSky(); }
     Voice.say(parts.join(". ") + ".");
   }
+
 
   function solarAltitude() {
     if (typeof Astronomy === "undefined") return -90;
@@ -897,21 +955,36 @@
 
   function whatsHere() {
     const f = Sensors.state.vec;
-    let best = null, bd = FOV_HALF;
+    const p = Astro.enuToAltAz(f);
+    if (p.alt < -5 && !el("below").checked) {
+      Voice.say(`You're pointing ${Math.round(-p.alt)} degrees below the horizon, toward the ${Astro.compassWord(p.az)}. Raise the phone to hear the sky.`);
+      return;
+    }
+    // prefer things with everyday names: the Moon, planets, and named bright stars
+    let best = null, bd = Infinity;
     for (const o of app.objects) {
-      if (!nameOf(o)) continue;
+      const plain = o.kind !== "star" || (o.star.name && o.mag < 3);
+      if (!plain || (o.vec[2] < 0 && !el("below").checked)) continue;
       const a = Astro.angleBetween(f, o.vec);
-      const score = a - (o.kind !== "star" ? 3 : 0) + o.mag * 0.5;
-      if (a < FOV_HALF && score < bd) { bd = score; best = o; }
+      if (a > 25) continue;
+      const score = a + (o.kind === "star" ? o.mag * 3 : -6);
+      if (score < bd) { bd = score; best = o; }
     }
     const con = constellationAt(f);
-    const p = Astro.enuToAltAz(f);
-    let t = `You are aiming ${Math.round(p.alt)} degrees up, toward the ${Astro.compassWord(p.az)}.`;
-    if (con) t += ` This is ${S.cons[con]}.`;
-    if (best) t += ` Nearest bright object: ${describe(best)}`;
-    app.lastTopic = best ? { kind: "obj", id: best.id } : con ? { kind: "con", id: con } : app.lastTopic;
+    let t = `You're pointing ${Math.round(p.alt)} degrees up, toward the ${Astro.compassWord(p.az)}`;
+    t += con ? `, in ${conSpoken(con)}.` : ".";
+    if (best) {
+      const a = Astro.angleBetween(f, best.vec);
+      t += a < LOCK_ANGLE + 1 ? ` You're right on ${nameOf(best) === "Moon" ? "the Moon" : nameOf(best)}. ${describe(best)}`
+        : ` The nearest bright object is ${nameOf(best) === "Moon" ? "the Moon" : nameOf(best)}, ${relativeWords(f, best.vec)}.`;
+      app.lastTopic = { kind: "obj", id: best.id };
+    } else {
+      t += " There are no bright stars right here. Try sweeping slowly, or ask what's up tonight.";
+      if (con) app.lastTopic = { kind: "con", id: con };
+    }
     Voice.say(t);
   }
+
 
   function calibrate() {
     const bodies = app.objects.filter((o) => o.kind !== "star" && o.vec[2] > 0)
@@ -921,35 +994,46 @@
     const ref = bodies[0] || bright[0];
     if (!ref) { Voice.say("Nothing bright enough to calibrate on right now."); return; }
     const d = Sensors.calibrateTo(ref.vec);
-    Voice.say(`Calibrated on ${nameOf(ref)}. Corrected by ${Math.round(Math.abs(d))} degrees.`);
+    Voice.say(`Calibrated on ${ref.kind === "moon" ? "the Moon" : nameOf(ref)}. Corrected by ${Math.round(Math.abs(d))} degrees.`);
   }
 
-  // ---------- sighted-companion view (simple, for testing and the demo video) ----------
+  // ---------- sighted-companion view (for friends, teachers, and the demo video) ----------
   const canvas = el("sky"), g = canvas.getContext("2d");
+  const COLORS = { night: "#070B1F", horizon: "#1A2147", lines: "rgba(243,230,207,0.16)", label: "rgba(243,230,207,0.82)",
+    planet: "#F6D28B", moon: "#F3E6CF", cone: "#9CC9FF", ember: "#FF7A45" };
+  const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   function draw(f) {
     const w = canvas.clientWidth, h = canvas.clientHeight, dpr = devicePixelRatio || 1;
-    if (canvas.width !== w * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    }
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.fillStyle = "#05070f"; g.fillRect(0, 0, w, h);
+    // night gradient: a little lighter toward the horizon, like real sky glow
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, COLORS.night); sky.addColorStop(1, "#0E1433");
+    g.fillStyle = sky; g.fillRect(0, 0, w, h);
     if (!app.objects.length) return;
     const basis = Astro.viewBasis(f);
-    const scale = Math.min(w, h) / 2 / Math.tan(35 * Astro.DEG); // ~70° wide view
+    // the aim point sits in the visible area above the control panel
+    const cx = w / 2, cy = h * (w < 700 ? 0.34 : 0.42);
+    const scale = Math.min(w, h) / 2 / Math.tan(32 * Astro.DEG);
     const proj = (v) => {
       const p = Astro.toView(basis, v);
       if (p[2] < 0.2) return null;
-      return [w / 2 + (p[0] / p[2]) * scale, h / 2 - (p[1] / p[2]) * scale];
+      return [cx + (p[0] / p[2]) * scale, cy - (p[1] / p[2]) * scale];
     };
-    // horizon
-    g.strokeStyle = "#2a3a2a"; g.lineWidth = 1; g.beginPath();
-    let started = false;
+    // ground: shade everything below the horizon
+    g.beginPath(); let started = false; const pts = [];
     for (let az = 0; az <= 360; az += 2) {
       const q = proj(Astro.altAzToENU(0, az));
+      if (q) pts.push(q);
       if (!q) { started = false; continue; }
       if (!started) { g.moveTo(q[0], q[1]); started = true; } else g.lineTo(q[0], q[1]);
     }
-    g.stroke();
+    g.strokeStyle = COLORS.horizon; g.lineWidth = 1.5; g.stroke();
     // constellation lines
-    g.strokeStyle = "rgba(120,150,220,0.35)";
+    g.strokeStyle = COLORS.lines; g.lineWidth = 1;
     for (const segs of Object.values(S.lines)) {
       for (const seg of segs) {
         g.beginPath(); let on = false;
@@ -961,41 +1045,81 @@
         g.stroke();
       }
     }
-    // stars and planets
-    g.font = "12px system-ui, sans-serif";
+    // stars, planets, Moon
+    g.font = "600 12px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
     for (const o of app.objects) {
       const q = proj(o.vec);
       if (!q) continue;
-      const r = Math.max(0.8, 3.6 - o.mag * 0.6);
-      g.fillStyle = o.kind === "star" ? starColor(o.star.bv) : o.kind === "moon" ? "#eeeeee" : "#ffd27a";
-      g.beginPath(); g.arc(q[0], q[1], o.kind === "moon" ? 9 : o.kind === "planet" ? 4 : r, 0, 7); g.fill();
-      if ((o.kind !== "star" || (o.star.name && o.mag < 2)) ) {
-        g.fillStyle = "rgba(220,225,240,0.75)"; g.fillText(nameOf(o), q[0] + 6, q[1] - 6);
+      if (o.kind === "star") {
+        const r = Math.max(0.7, 3.2 - o.mag * 0.55);
+        if (o.mag < 1.5) { // soft glow on the brightest stars
+          const glow = g.createRadialGradient(q[0], q[1], 0, q[0], q[1], r * 4);
+          glow.addColorStop(0, starColor(o.star.bv, 0.35)); glow.addColorStop(1, "rgba(0,0,0,0)");
+          g.fillStyle = glow; g.beginPath(); g.arc(q[0], q[1], r * 4, 0, 7); g.fill();
+        }
+        g.fillStyle = starColor(o.star.bv, 1);
+        g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill();
+        if (o.star.name && o.mag < 1.6) { g.fillStyle = COLORS.label; g.fillText(o.star.name, q[0] + 7, q[1] - 7); }
+      } else {
+        const r = o.kind === "moon" ? 10 : 4.5;
+        g.fillStyle = o.kind === "moon" ? COLORS.moon : COLORS.planet;
+        g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill();
+        g.fillStyle = COLORS.label; g.fillText(o.name, q[0] + r + 5, q[1] - r - 2);
       }
     }
-    // listening cone + crosshair
-    const rr = Math.tan(FOV_HALF * Astro.DEG) * scale;
-    g.strokeStyle = app.mode === "find" ? "#ffb347" : "#7fd1ff"; g.lineWidth = 1.5;
-    g.beginPath(); g.arc(w / 2, h / 2, rr, 0, 7); g.stroke();
-    g.beginPath(); g.moveTo(w / 2 - 8, h / 2); g.lineTo(w / 2 + 8, h / 2);
-    g.moveTo(w / 2, h / 2 - 8); g.lineTo(w / 2, h / 2 + 8); g.stroke();
+    // the listening cone: what you can hear right now
+    if (app.running) {
+      const rr = Math.tan(FOV_HALF * Astro.DEG) * scale;
+      const color = app.mode === "find" ? COLORS.ember : COLORS.cone;
+      g.strokeStyle = color; g.globalAlpha = 0.9; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(cx, cy, rr, 0, 7); g.stroke();
+      g.globalAlpha = 0.08; g.fillStyle = color; g.fill(); g.globalAlpha = 1;
+      g.lineWidth = 2; g.beginPath();
+      g.moveTo(cx - 7, cy); g.lineTo(cx + 7, cy); g.moveTo(cx, cy - 7); g.lineTo(cx, cy + 7); g.stroke();
+      // in Find mode, an arrow at the cone's edge points toward the target
+      if (app.mode === "find" && app.target) {
+        const tv = targetVec();
+        const pv = Astro.toView(basis, tv);
+        const ang = Math.atan2(-pv[1], pv[0]);
+        if (Astro.angleBetween(f, tv) > FOV_HALF) {
+          const ax = cx + Math.cos(ang) * (rr + 14), ay = cy + Math.sin(ang) * (rr + 14);
+          g.fillStyle = COLORS.ember; g.beginPath();
+          g.moveTo(ax + Math.cos(ang) * 10, ay + Math.sin(ang) * 10);
+          g.lineTo(ax + Math.cos(ang + 2.4) * 8, ay + Math.sin(ang + 2.4) * 8);
+          g.lineTo(ax + Math.cos(ang - 2.4) * 8, ay + Math.sin(ang - 2.4) * 8);
+          g.fill();
+        }
+      }
+    }
   }
 
-  function starColor(bv) {
-    const t = Math.min(1, Math.max(0, (bv + 0.3) / 2.1));
-    const r = Math.round(170 + 85 * Math.min(1, t * 1.6));
-    const gg = Math.round(200 + 40 * (1 - Math.abs(t - 0.4) * 1.5));
-    const b = Math.round(255 - 150 * t);
-    return `rgb(${r},${gg},${b})`;
+  function starColor(bv, alpha) {
+    const t = Math.min(1, Math.max(0, (bv + 0.3) / 2.1)); // 0 blue-white .. 1 red
+    const r = Math.round(185 + 70 * Math.min(1, t * 1.6));
+    const gg = Math.round(205 + 35 * (1 - Math.abs(t - 0.35) * 1.4));
+    const b = Math.round(255 - 140 * t);
+    return `rgba(${r},${gg},${b},${alpha})`;
   }
 
   function updateStatus(f) {
     const p = Astro.enuToAltAz(f);
     const sensorOk = Sensors.receiving();
-    el("status").textContent =
-      `${Sensors.state.mode === "simulate" ? "Practice mode" : sensorOk ? "Phone sensors on" : "Waiting for sensors…"} · ` +
-      `aiming ${Math.round(p.alt)}° up, ${Math.round(p.az)}° (${Astro.compassWord(p.az)}) · ` +
-      `${app.loc.label} · ${app.timeMode === "now" ? "now" : "tonight 9 PM"}`;
+    const where = `Aiming ${Math.round(p.alt)}° up, toward the ${Astro.compassWord(p.az)}`;
+    const source = Sensors.state.mode === "simulate" ? "Practice mode" : sensorOk ? "" : "Waiting for motion sensors";
+    const time = app.timeMode === "tonight" ? "Sky at 9 PM tonight" : "";
+    el("status").textContent = [where, source, time].filter(Boolean).join(". ");
+    const mode = el("modeText");
+    if (mode) {
+      const label = app.mode === "find" && app.target ? `Finding ${app.target.label}` : app.tour ? "Tour" : "";
+      mode.textContent = label;
+      el("modePill").hidden = !label;
+    }
+  }
+
+  // before Start, the sky drifts slowly behind the welcome screen
+  function idleDrift() {
+    if (app.running || reduceMotion) return;
+    Sensors.state.raw = Astro.altAzToENU(38, (performance.now() / 1000) * 1.5 % 360);
   }
 
   // ---------- setup ----------
@@ -1036,6 +1160,7 @@
 
   async function start(practice, handsFreeStart = false) {
     Sound.init();
+    Voice.unlock(); // iPhones only allow speech that starts inside a tap
     el("startPanel").hidden = true;
     el("controls").hidden = false;
     if (practice) {
@@ -1067,7 +1192,7 @@
     }
     getLocation().then((gotLoc) => {
       if (gotLoc) rebuildSky();
-      else Voice.say("Location unavailable, so I'm using the sky over Westlake Village.", { interrupt: false });
+      else Voice.say("I couldn't get your location, so I'm using the sky over Westlake Village.", { interrupt: false });
     });
     if (!practice) {
       setTimeout(() => {
@@ -1118,7 +1243,7 @@
     // control starts listening, so a blind user never has to find the Talk button.
     document.addEventListener("click", (e) => {
       if (!app.running || Sensors.state.mode !== "phone") return;
-      if (e.target.closest("button, select, input, label, summary, details, a")) return;
+      if (e.target.closest("button, select, input, label, summary, details, a, dialog")) return;
       talk();
     });
 

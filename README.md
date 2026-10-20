@@ -61,22 +61,22 @@ It's plain HTML and JavaScript with no build step and no accounts needed.
 - **On a computer:** open `index.html` in Chrome or Safari and choose Practice mode. Aim with the arrow keys (Shift for bigger steps) or by dragging the sky. Keys: Space = talk, `h` = what am I pointing at, `c` = play constellation, `t` = what's up tonight, `m` = tell me more, `n` = next tour stop. (Voice commands and offline mode need the app hosted online, below.)
 - **On a phone:** motion sensors and location need HTTPS, so host it on GitHub Pages:
   1. Create a GitHub repository named `starsound`.
-  2. Choose **Add file → Upload files** and drag in everything in this folder (all files and the `js`, `lib`, `data`, and `icons` folders).
+  2. Choose **Add file → Upload files** and drag in all the files in this folder.
   3. Go to **Settings → Pages**, set the source to **Deploy from a branch**, branch `main`, folder `/ (root)`, and save.
   4. After a minute, open `https://<your-username>.github.io/starsound/` on your phone. Use headphones.
 
 ## How it works
 
-- `js/astro.js` — the sky math. It converts each star's catalog position (right ascension and declination) into altitude and azimuth for your location and time, using local sidereal time and the hour angle. Everything is represented as 3D unit vectors (East, North, Up), so angles between things are dot products. It also includes the reverse conversion and a ray-casting test against the official IAU constellation boundaries to tell which constellation you're aiming at.
-- `js/sensors.js` — turns the phone's orientation angles (alpha, beta, gamma) into the direction the back camera points, using the rotation matrix from the W3C DeviceOrientation spec. It smooths the vector rather than the angles (angles jump at 0°/360°), corrects for magnetic declination, handles iPhone's relative compass, and supports calibrating on the Moon or a planet.
-- `js/audio.js` — the sonification, built on the Web Audio API with HRTF spatial panning, plus speech output.
-- `js/commands.js` — turns what the user said into an action. It handles nicknames ("Big Dipper"), common mishearings ("serious" → Sirius, "beetlejuice" → Betelgeuse), and close misspellings using edit distance. It tries each of the recognizer's guesses until one makes sense.
-- `js/listen.js` — voice input through the browser's speech recognition: tap-to-talk, and hands-free listening with the "Hey Star" wake phrase, which pauses while the app speaks.
-- `data/stories.js` — the spoken stories. Easy to add more.
-- `data/faq.js` — answers to common astronomy questions. Easy to add more.
+- `astro.js` — the sky math. It converts each star's catalog position (right ascension and declination) into altitude and azimuth for your location and time, using local sidereal time and the hour angle. Everything is represented as 3D unit vectors (East, North, Up), so angles between things are dot products. It also includes the reverse conversion and a ray-casting test against the official IAU constellation boundaries to tell which constellation you're aiming at.
+- `sensors.js` — turns the phone's orientation angles (alpha, beta, gamma) into the direction the back camera points, using the rotation matrix from the W3C DeviceOrientation spec. It smooths the vector rather than the angles (angles jump at 0°/360°), corrects for magnetic declination, handles iPhone's relative compass, and supports calibrating on the Moon or a planet.
+- `audio.js` — the sonification, built on the Web Audio API with HRTF spatial panning, plus speech output.
+- `commands.js` — turns what the user said into an action. It handles nicknames ("Big Dipper"), common mishearings ("serious" → Sirius, "beetlejuice" → Betelgeuse), and close misspellings using edit distance. It tries each of the recognizer's guesses until one makes sense.
+- `listen.js` — voice input through the browser's speech recognition: tap-to-talk, and hands-free listening with the "Hey Star" wake phrase, which pauses while the app speaks.
+- `stories.js` — the spoken stories. Easy to add more.
+- `faq.js` — answers to common astronomy questions. Easy to add more.
 - `sw.js` and `manifest.webmanifest` — offline support and installing to the home screen.
-- `js/app.js` — the main loop, Explore and Find modes, constellation melodies, and the simple sky view for sighted companions.
-- `data/sky-data.js` — 1,044 naked-eye stars, constellation lines, and constellation boundaries, generated from the sources below.
+- `app.js` — the main loop, Explore and Find modes, constellation melodies, and the simple sky view for sighted companions.
+- `sky-data.js` — 1,044 naked-eye stars, constellation lines, and constellation boundaries, generated from the sources below.
 
 The star-position math was checked against the astronomy-engine library and matches within 0.002°. Star positions use J2000 catalog coordinates; precession since 2000 shifts them by about 0.4°, far smaller than phone compass error.
 

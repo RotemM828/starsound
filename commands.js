@@ -141,6 +141,7 @@ const Commands = (() => {
 
     // quick control words
     if (is(t, ["stop", "cancel", "never mind", "nevermind", "stop finding", "end tour", "stop tour", "quit"])) return r("stop");
+    if (has(t, ["all commands", "every command", "full list", "more commands", "all the commands", "list of commands"])) return r("helpAll");
     if (has(t, ["what can i say", "what can you do", "commands", "instructions"]) || is(t, ["help", "help me", "help please"])) return r("help");
     if (has(t, ["how does this work", "how does it work", "explain the sounds", "what do the sounds mean", "tutorial"])) return r("tutorial");
 
@@ -267,14 +268,21 @@ const Commands = (() => {
     return first || parse("");
   }
 
-  const HELP = "You can say: What am I pointing at. What's up tonight. Find, then a name, like Find Jupiter, " +
-    "or Find the Big Dipper. Which way is north. Take me on a tour, then Next. Tell me more. Tell me about Vega. " +
-    "Is Saturn up? When does the Moon rise? What's the moon phase? When does it get dark? How far is Mars? " +
-    "When's the next meteor shower? What have I seen this month? You can also ask questions like, why do stars twinkle. " +
-    "Play this constellation. Pause, or Resume. Louder, or Quieter. Speak slower, or faster. Repeat. And Stop. " +
-    "Say hands free on, and then start each command with Hey Star, so you never need to touch the screen.";
+  const HELP = "Here's what you can ask. What am I pointing at? What's up tonight? Find Jupiter, or, find the Big Dipper. " +
+    "Take me on a tour. Is Saturn up? What's the moon phase? Tell me more. " +
+    "You can also ask astronomy questions, like, why do stars twinkle? To hear every command, say: all commands.";
 
-  return { parse, parseAlternatives, setVocabulary, matchTarget, matchFaq, normalize, editDistance, HELP };
+  const HELP_ALL = "Every command. Pointing: What am I pointing at. Which way is north. " +
+    "Finding: Find, then a name, like Find Vega. Stop. " +
+    "Tours: Take me on a tour. Next. " +
+    "Sky questions: What's up tonight. Is Mars up. When does the Moon rise. When does Orion set. When is sunset. " +
+    "When does it get dark. What's the moon phase. When is the next full moon. How far is Jupiter. When is the next meteor shower. " +
+    "Learning: Tell me more. Tell me about Vega. Play this constellation. And questions like, what is a light-year. " +
+    "Your log: What have I seen this month. Have I seen Saturn. " +
+    "Sound: Pause. Resume. Louder. Quieter. Speak slower. Speak faster. Repeat. " +
+    "Hands-free: say hands free on, then start each command with Hey Star. Say hands free off to stop.";
+
+  return { parse, parseAlternatives, setVocabulary, matchTarget, matchFaq, normalize, editDistance, HELP, HELP_ALL };
 })();
 
 if (typeof module !== "undefined") module.exports = Commands;

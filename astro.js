@@ -134,9 +134,13 @@ const Astro = (() => {
     if (typeof Astronomy === "undefined") return null;
     const angle = Astronomy.MoonPhase(date); // 0 new, 90 first quarter, 180 full, 270 last
     const lit = Math.round(Astronomy.Illumination("Moon", date).phase_fraction * 100);
-    const names = ["new moon", "waxing crescent", "first quarter", "waxing gibbous",
-      "full moon", "waning gibbous", "last quarter", "waning crescent"];
-    return { name: names[Math.round(angle / 45) % 8], lit };
+    const waxing = angle < 180;
+    // name the phase by how much is lit, the way people describe what they see
+    const name = lit <= 2 ? "new moon" : lit >= 98 ? "full moon"
+      : lit < 45 ? (waxing ? "waxing crescent" : "waning crescent")
+      : lit <= 55 ? (waxing ? "first quarter" : "last quarter")
+      : (waxing ? "waxing gibbous" : "waning gibbous");
+    return { name, lit };
   }
 
   function compassWord(azDeg) {

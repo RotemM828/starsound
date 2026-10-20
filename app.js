@@ -3,9 +3,29 @@
 
 (() => {
   const DEFAULT_LOC = { lat: 34.1459, lon: -118.8059, label: "Westlake Village" };
-  const FOV_HALF = 14;       // degrees: stars within this cone of where you aim are audible
-  const LOCK_ANGLE = 4;      // degrees: aim this close to a named object to hear its name
-  const MAX_VOICES = 8;      // loudest N stars in view play at once
+  // The listening circle: stars within FOCUS[x].half degrees of where you aim are audible.
+  // "normal" is 22 degrees across, about two fists held at arm's length.
+  const FOCUS = {
+    narrow: { half: 8, voices: 3 },
+    normal: { half: 11, voices: 5 },
+    wide: { half: 15, voices: 6 },
+  };
+  let FOV_HALF = FOCUS.normal.half;
+  let MAX_VOICES = FOCUS.normal.voices;
+  let STAR_LIMIT = 3.5;      // faintest star that plays (3.5 is roughly what you see from a suburb)
+  const LOCK_ANGLE = 3;      // degrees: hold this close to a bright object to hear its name
+  const LOCK_HOLD_MS = 700;  // ...for this long, while holding still
+  const LOCK_MAG = 2.3;      // stars must be at least this bright to be announced automatically
+
+  function setFocus(name) {
+    const f = FOCUS[name] || FOCUS.normal;
+    FOV_HALF = f.half; MAX_VOICES = f.voices;
+    return name in FOCUS ? name : "normal";
+  }
+  function setDetail(name) {
+    STAR_LIMIT = { fewest: 2.5, bright: 3.5, more: 4.5 }[name] || 3.5;
+    return STAR_LIMIT;
+  }
 
   const el = (id) => document.getElementById(id);
   const S = window.SKY_DATA;
@@ -30,6 +50,9 @@
     tour: null,             // { stops: [target...], i }
     lastTopic: null,        // { kind: "obj", id } | { kind: "con", id } for "tell me more"
     storyHintGiven: false,
+    hintsGiven: 0,          // the first few announcements teach follow-up questions
+    followHints: 0,
+    nearList: [],
   };
 
   // ---------- saved settings (this phone only) ----------
@@ -156,6 +179,159 @@
     return parts.length ? parts.join(" and ") : "right where you're pointing";
   }
 
+
+  // ---------- smart follow-ups: describe it, what's nearby, the brightest thing ----------
+  function spokenName(o) {
+    if (o.kind === "moon") return "the Moon";
+    return nameOf(o) || "a star";
+  }
+
+  function colorWord(o) {
+    return (COLOR_WORDS[o.star.sp] || "").split(",")[0];
+  }
+
+  function shortType(o) {
+    if (o.kind === "moon") { const ph = Astro.moonPhase(app.date); return ph ? ph.name : "our Moon"; }
+    if (o.kind === "planet") return "a planet";
+    const c = colorWord(o);
+    const con = o.star.con ? ` in ${S.cons[o.star.con]}` : "";
+    return `${c ? (/^[aeiou]/.test(c) ? "an " : "a ") + c + " star" : "a star"}${con}`;
+  }
+
+  // brightness rank among all stars in the catalog
+  const RANK = new Map(S.stars.map((s, i) => [i, s]).sort((a, b) => a[1].mag - b[1].mag).map(([i], r) => [i, r + 1]));
+  function brightnessWords(o) {
+    const r = RANK.get(o.idx);
+    if (r <= 5) return "one of the five brightest stars in the night sky";
+    if (r <= 10) return "one of the ten brightest stars in the night sky";
+    if (r <= 25) return "one of the 25 brightest stars in the night sky";
+    if (r <= 60) return "one of the brighter stars in the sky";
+    return "";
+  }
+
+  // typical surface temperatures by spectral class, in kelvin
+  const TEMP_K = { O: 40000, B: 20000, A: 8500, F: 6700, G: 5600, K: 4500, M: 3300 };
+  function temperatureWords(o) {
+    const k = TEMP_K[o.star.sp];
+    if (!k) return "";
+    const f = Math.round((k * 1.8 - 459.67) / 1000) * 1000;
+    const vsSun = k > 6200 ? "hotter than our Sun" : k < 5200 ? "cooler than our Sun" : "about as hot as our Sun";
+    return `Its surface is roughly ${f.toLocaleString()} degrees Fahrenheit, ${vsSun}.`;
+  }
+
+  function describeTarget(target) {
+    if (!target) return;
+    const parts = [];
+    if (target.type === "object") {
+      const o = app.byId.get(target.id);
+      if (!o) return;
+      app.lastTopic = { kind: "obj", id: o.id, at: performance.now() };
+      if (o.kind === "star") {
+        const s = o.star;
+        parts.push(`${capitalize(spokenName(o))} is ${shortType(o).replace(/ in .*/, "")}${s.con ? ` in ${conSpoken(s.con)}` : ""}.`);
+        const b = brightnessWords(o);
+        if (b) parts.push(`It's ${b}.`);
+        const t = temperatureWords(o);
+        if (t) parts.push(t);
+        if (s.ly) parts.push(`It's about ${s.ly.toLocaleString()} light-years away, so the light reaching you tonight left it about ${s.ly.toLocaleString()} years ago.`);
+      } else if (o.kind === "moon") {
+        const ph = Astro.moonPhase(app.date);
+        parts.push(`The Moon is ${phaseWords(ph)}, ${ph.lit} percent lit.`);
+        parts.push(distanceSentence(target));
+      } else {
+        parts.push(`${o.name} is ${PLANET_FACTS[o.name] || "a planet"}.`);
+        parts.push(distanceSentence(target));
+      }
+      parts.push(`Right now it's ${whereWords(o)}.`);
+      const story = storyForObject(o);
+      if (story) parts.push(story);
+    } else if (target.type === "con") {
+      app.lastTopic = { kind: "con", id: target.id, at: performance.now() };
+      parts.push(`${conSpoken(target.id)}. It's ${whereWords({ vec: targetVec(target) })}.`);
+      const brightest = [...new Set(S.lines[target.id].flat())].map((i) => app.objects[i])
+        .filter((o) => o.star.name).sort((a, b) => a.mag - b.mag)[0];
+      if (brightest) parts.push(`Its brightest star is ${brightest.star.name}.`);
+      if (STORIES.cons[target.id]) parts.push(STORIES.cons[target.id]);
+    } else if (target.type === "sun") {
+      parts.push("The Sun is our star, about 93 million miles away. StarSound doesn't guide you to it, so nobody nearby looks straight at it.");
+    } else {
+      return findTarget(target);
+    }
+    if (app.followHints < 2) {
+      parts.push("You can also ask: how far is it, when does it set, or what's nearby.");
+      app.followHints++;
+    }
+    Voice.say(parts.join(" "));
+  }
+
+  function phaseWords(ph) {
+    return /moon/.test(ph.name) ? `a ${ph.name}` : /quarter/.test(ph.name) ? `at ${ph.name}` : `a ${ph.name} moon`;
+  }
+
+  // describe where b is, as seen by someone looking at a ("above and to the left")
+  function relativeTo(a, b) {
+    const pa = Astro.enuToAltAz(a), pb = Astro.enuToAltAz(b);
+    const dAz = ((pb.az - pa.az + 540) % 360) - 180, dAlt = pb.alt - pa.alt;
+    const parts = [];
+    if (dAlt > 3) parts.push("above"); else if (dAlt < -3) parts.push("below");
+    if (Math.abs(dAz) > 3) parts.push(`to the ${dAz > 0 ? "right" : "left"}`);
+    return parts.length ? parts.join(" and ") : "right next to it";
+  }
+
+  function topicVec() {
+    const t = app.lastTopic;
+    const recent = t && performance.now() - (t.at || 0) < 120000;
+    if (!recent) return null;
+    if (t.kind === "obj") { const o = app.byId.get(t.id); return o ? { vec: o.vec, name: spokenName(o), id: o.id } : null; }
+    return { vec: targetVec({ type: "con", id: t.id }), name: S.cons[t.id], id: null };
+  }
+
+  function nearby() {
+    const topic = topicVec();
+    const center = topic ? topic.vec : Sensors.state.vec;
+    const label = topic ? topic.name : "where you're pointing";
+    const near = app.objects
+      .filter((o) => o.id !== (topic && topic.id) && (o.kind !== "star" || (o.star.name && o.mag < 2.6)))
+      .filter((o) => o.vec[2] > 0 || el("below").checked)
+      .map((o) => ({ o, a: Astro.angleBetween(center, o.vec) }))
+      .filter((x) => x.a < 30)
+      .sort((x, y) => x.a - y.a)
+      .slice(0, 3);
+    if (!near.length) {
+      Voice.say(`Nothing bright is near ${label}. Say what's up tonight to hear where the bright objects are.`);
+      return;
+    }
+    const items = near.map((x) => `${spokenName(x.o)}, ${relativeTo(center, x.o.vec)}`);
+    app.nearList = near.map((x) => x.o.id);
+    const spoken = items.length === 1 ? items[0] : items.slice(0, -1).join("; ") + "; and " + items[items.length - 1];
+    Voice.say(`Near ${label}: ${spoken}. Say find, and a name, to go there.`);
+  }
+
+  function brightest() {
+    const up = app.objects.filter((o) => o.vec[2] > 0.09);
+    if (!up.length) { Voice.say("Nothing bright is above the horizon right now."); return; }
+    const top = up.slice().sort((a, b) => a.mag - b.mag)[0];
+    const star = up.filter((o) => o.kind === "star" && o.star.name).sort((a, b) => a.mag - b.mag)[0];
+    let t = `The brightest thing in the sky right now is ${spokenName(top)}, ${whereWords(top)}.`;
+    if (star && star !== top) t += ` The brightest star is ${star.star.name}, ${whereWords(star)}.`;
+    t += ` Say find ${spokenName(top).replace(/^the /, "the ")} to go there.`;
+    app.lastTopic = { kind: "obj", id: top.id, at: performance.now() };
+    Voice.say(t);
+  }
+
+  // the context card: what "it" means right now, with quick buttons
+  let shownTopicKey = null;
+  function updateTopicCard() {
+    const card = el("topicCard");
+    if (!card) return;
+    const t = app.running ? topicVec() : null;
+    const key = t ? (app.lastTopic.kind + app.lastTopic.id) : null;
+    if (key === shownTopicKey) return;
+    shownTopicKey = key;
+    card.hidden = !t;
+    if (t) el("topicName").textContent = capitalize(t.name);
+  }
+
   // ---------- stories ("tell me more") ----------
   const STORIES = window.STORIES || { stars: {}, planets: {}, cons: {} };
 
@@ -205,6 +381,12 @@
   }
 
   function resolveRef(ref) {
+    if (ref === "topic") { // "it", "that": whatever we were just talking about
+      const t = app.lastTopic;
+      if (!t) return null;
+      if (t.kind === "obj") { const o = app.byId.get(t.id); return o ? { type: "object", id: o.id, label: spokenName(o) } : null; }
+      return { type: "con", id: t.id, label: S.cons[t.id] };
+    }
     const [kind, name] = ref.split(":");
     if (kind === "planet" && name === "Sun") return { type: "sun", id: "Sun", label: "the Sun" };
     if (kind === "planet") return { type: "object", id: "p" + name, label: name === "Moon" ? "the Moon" : name };
@@ -258,6 +440,7 @@
     const inView = [];
     for (const o of app.objects) {
       if (!showBelow && o.vec[2] < 0) continue;
+      if (o.kind === "star" && o.mag > STAR_LIMIT) continue;
       const a = Astro.angleBetween(f, o.vec);
       if (a > FOV_HALF) continue;
       const centered = 1 - a / FOV_HALF;
@@ -276,24 +459,28 @@
       app.nextPing.set(v.o.id, now + interval * (0.85 + Math.random() * 0.3));
     }
 
-    // lock-on: hold a named object near the center to hear about it
+    // lock-on: hold still on the Moon, a planet, or a bright named star to hear what it is
     let lockObj = null, la = LOCK_ANGLE;
     for (const v of inView) {
-      if (v.a < la && nameOf(v.o) && (v.o.kind !== "star" || v.o.mag < 3.5)) { la = v.a; lockObj = v.o; }
+      const bright = v.o.kind !== "star" || (v.o.star.name && v.o.mag <= LOCK_MAG);
+      if (v.a < la && bright) { la = v.a; lockObj = v.o; }
     }
-    if (!lockObj) { app.lock.id = null; }
-    else if (app.lock.id !== lockObj.id) { app.lock = { id: lockObj.id, since: now }; }
-    else if (now - app.lock.since > 450) {
+    const still = app.speed < 4; // degrees per second
+    if (!lockObj) app.lock.id = null;
+    else if (!still) app.lock = { id: lockObj.id, since: now };
+    else if (app.lock.id !== lockObj.id) app.lock = { id: lockObj.id, since: now };
+    else if (now - app.lock.since > LOCK_HOLD_MS && el("autoNames").checked) {
       const last = app.announced.get(lockObj.id) ?? -Infinity;
-      if (now - last > 45000) {
-        let text = describe(lockObj);
-        const hint = !app.storyHintGiven && hasStory(lockObj);
-        if (hint) text += " Say tell me more for its story.";
+      if (now - last > 60000) {
+        let text = `You're on ${spokenName(lockObj)}, ${shortType(lockObj)}.`;
+        if (app.hintsGiven < 3) text += " Ask me to describe it, or, what's nearby.";
         if (Voice.say(text, { auto: true })) { // skipped if you're listening to an answer
           app.announced.set(lockObj.id, now);
-          app.lastTopic = { kind: "obj", id: lockObj.id };
+          app.lastTopic = { kind: "obj", id: lockObj.id, at: now };
+          // don't follow "You're on Saturn" with "Now in Cetus": "it" should stay Saturn
+          app.lastCon = app.announcedCon = constellationAt(f);
           logObject(lockObj);
-          if (hint) app.storyHintGiven = true;
+          app.hintsGiven++;
           Sound.buzz(40);
           return;
         }
@@ -301,13 +488,14 @@
     }
 
     // gently name the constellation you're sweeping through, once you slow down
-    if (el("conNames").checked && app.speed < 10) {
+    if (el("conNames").checked && app.speed < 6) {
       const con = constellationAt(f);
       if (con !== app.lastCon) { app.lastCon = con; app.conSince = now; }
-      else if (con && now - app.conSince > 1200 && app.announcedCon !== con) {
-        if (Voice.say(conSpoken(con), { interrupt: false, auto: true })) {
+      else if (con && now - app.conSince > 2200 && app.announcedCon !== con) {
+        if (Voice.say(`Now in ${conSpoken(con)}.`, { interrupt: false, auto: true })) {
           app.announcedCon = con;
-          app.lastTopic = { kind: "con", id: con };
+          const recentObject = app.lastTopic && app.lastTopic.kind === "obj" && now - app.lastTopic.at < 30000;
+          if (!recentObject) app.lastTopic = { kind: "con", id: con, at: now };
         }
       }
     }
@@ -367,13 +555,14 @@
     } else if (t.type === "object") {
       const o = app.byId.get(t.id);
       app.announced.set(t.id, now); // don't repeat it on lock-on
-      app.lastTopic = { kind: "obj", id: t.id };
+      app.lastTopic = { kind: "obj", id: t.id, at: performance.now() };
       logObject(o);
-      text = `Found it. ${describe(o)}`;
+      text = `You're on ${spokenName(o)}, ${shortType(o)}.`;
+      if (!app.tour && app.hintsGiven < 3) { text += " Ask me to describe it, or, what's nearby."; app.hintsGiven++; }
       if (app.tour) { const s = storyForObject(o); if (s) text += " " + s; }
     } else {
       conId = t.id;
-      app.lastTopic = { kind: "con", id: conId };
+      app.lastTopic = { kind: "con", id: conId, at: performance.now() };
       Log.add(S.cons[conId], "con");
       text = `Found ${t.label}.`;
       if (app.tour && STORIES.cons[conId]) text += " " + STORIES.cons[conId];
@@ -502,7 +691,7 @@
     const token = ++app.melodyToken;
     app.playingMelody = true;
     app.announcedCon = conId;
-    app.lastTopic = { kind: "con", id: conId };
+    app.lastTopic = { kind: "con", id: conId, at: performance.now() };
     Voice.say(`The shape of ${conSpoken(conId)}.`);
     await wait(1100);
     const basis = Astro.viewBasis(Sensors.state.vec);
@@ -524,11 +713,11 @@
     if (!target) return;
     if (target.type === "object") {
       const o = app.byId.get(target.id);
-      app.lastTopic = { kind: "obj", id: o.id };
+      app.lastTopic = { kind: "obj", id: o.id, at: performance.now() };
       const s = storyForObject(o);
       Voice.say(`${describe(o, { withPlace: true })}${s ? " " + s : ""} Say find ${target.label} to go there.`);
     } else if (target.type === "con") {
-      app.lastTopic = { kind: "con", id: target.id };
+      app.lastTopic = { kind: "con", id: target.id, at: performance.now() };
       const where = whereWords({ vec: targetVec(target) });
       Voice.say(`${conSpoken(target.id)}. It is ${where}. ${STORIES.cons[target.id] || ""}`);
     } else {
@@ -539,9 +728,18 @@
   // ---------- voice commands ----------
   function runCommand(cmd) {
     const a = cmd.action;
-    if (["find", "about", "riseSet", "visible", "distance", "logHas"].includes(a)) {
+    if (["find", "about", "describe", "riseSet", "visible", "distance", "logHas"].includes(a)) {
       const target = resolveRef(cmd.ref);
-      if (!target) { Voice.say("I couldn't find that in tonight's sky data."); return; }
+      if (!target) {
+        Voice.say(cmd.ref === "topic" ? "I'm not sure what you mean. Point at something and hold still, or say a name, like Jupiter."
+          : "I couldn't find that in tonight's sky data.");
+        return;
+      }
+      // asking about something by name makes it the new "it"
+      if (cmd.ref !== "topic" && (target.type === "object" || target.type === "con")) {
+        app.lastTopic = { kind: target.type === "object" ? "obj" : "con", id: target.id, at: performance.now() };
+      }
+      if (a === "describe") return describeTarget(target);
       if (a === "riseSet") return answerRiseSet(target, cmd.dir);
       if (a === "visible") return answerVisible(target);
       if (a === "distance") return answerDistance(target);
@@ -549,11 +747,20 @@
       if (target.type === "sun") {
         return Voice.say(`StarSound doesn't guide you to the Sun, so nobody nearby looks straight at it. ${sunAltitudeAt(new Date()) > 0 ? "It's up now." : "It's below the horizon now."} You can ask when the Sun rises or sets.`);
       }
-      if (a === "find") findTarget(target); else aboutTarget(target);
+      if (a === "find") findTarget(target); else describeTarget(target);
       return;
     }
     switch (a) {
       case "here": return whatsHere();
+      case "nearby": return nearby();
+      case "brightest": return brightest();
+      case "focus": {
+        const order = ["narrow", "normal", "wide"];
+        const cur = el("focus").value;
+        const next = order[Math.max(0, Math.min(2, order.indexOf(cur) + (cmd.dir === "wider" ? 1 : -1)))];
+        el("focus").value = setFocus(next); Prefs.save({ focus: next });
+        return Voice.say(next === cur ? `The listening circle is already ${next}.` : `Listening circle: ${next}.`);
+      }
       case "faq": return Voice.say(cmd.answer);
       case "log": return logSummary(cmd.period);
       case "logClear": app.confirmClear = Date.now(); return Voice.say("This erases everything you've logged. To be sure, say confirm clear.");
@@ -686,10 +893,38 @@
       else if (periodName === "week") start = new Date(now.getTime() - 7 * 86400 * 1000);
       else if (periodName === "month") start = new Date(now.getFullYear(), now.getMonth(), 1);
       else if (periodName === "year") start = new Date(now.getFullYear(), 0, 1);
+      else if (periodName === "lastnight") {
+        const k = nightKey(Date.now()) - 86400000;
+        return this.all().filter((e) => nightKey(e.t) === k);
+      }
       else start = new Date(0);
       return this.all().filter((e) => e.t >= start.getTime());
     },
   };
+
+  // an observing "night" runs noon to noon, so 1 AM sightings count for the evening before
+  function nightKey(t) { const d = new Date(t - 12 * 3600 * 1000); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+
+  function renderJournal() {
+    const box = el("journalList");
+    box.textContent = "";
+    const entries = Log.all();
+    if (!entries.length) {
+      const p = document.createElement("p"); p.className = "note";
+      p.textContent = "Nothing yet. Everything you find, or hold still on, is saved here automatically.";
+      box.appendChild(p); return;
+    }
+    const nights = new Map();
+    for (const e of entries) { const k = nightKey(e.t); if (!nights.has(k)) nights.set(k, []); nights.get(k).push(e); }
+    for (const [k, list] of [...nights.entries()].sort((a, b) => b[0] - a[0]).slice(0, 60)) {
+      const h = document.createElement("h3"); h.className = "group-title";
+      const today = nightKey(Date.now());
+      h.textContent = k === today ? "Tonight" : k === today - 86400000 ? "Last night" : new Date(k).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+      const p = document.createElement("p"); p.className = "journal-night";
+      p.textContent = [...new Set(list.map((e) => (e.n === "Moon" ? "the Moon" : e.n)))].join(", ");
+      box.append(h, p);
+    }
+  }
 
   function logObject(o) {
     if (o.kind === "star") Log.add(o.star.name || o.star.bayer, "star");
@@ -702,7 +937,7 @@
   }
 
   function logSummary(periodName) {
-    const label = { night: "tonight", week: "this week", month: "this month", year: "this year", all: "so far" }[periodName];
+    const label = { night: "tonight", lastnight: "last night", week: "this week", month: "this month", year: "this year", all: "so far" }[periodName];
     const entries = Log.since(periodName);
     if (!entries.length) {
       Voice.say(`You haven't logged anything ${label} yet. Every planet, bright star, or constellation you find or hold still on gets saved automatically.`);
@@ -815,36 +1050,38 @@
     }
   }
 
-  function answerDistance(target) {
+  function distanceSentence(target) {
     const AU_MILES = 92955807;
     if (target.type === "sun" || (target.type === "object" && target.id.startsWith("p"))) {
       const body = target.type === "sun" ? "Sun" : target.id.slice(1);
       const au = Astronomy.GeoVector(body, new Date(), true).Length();
       const lightMin = au * 8.3167;
       if (body === "Moon") {
-        Voice.say(`The Moon is about ${Math.round(au * AU_MILES / 1000).toLocaleString()} thousand miles away right now. Its light takes about ${(lightMin * 60).toFixed(1)} seconds to reach you.`);
+        return (`The Moon is about ${Math.round(au * AU_MILES / 1000).toLocaleString()} thousand miles away right now. Its light takes about ${(lightMin * 60).toFixed(1)} seconds to reach you.`);
       } else {
         const miles = au * AU_MILES / 1e6;
         const big = miles >= 1000 ? `${(miles / 1000).toFixed(1)} billion` : `${Math.round(miles)} million`;
         const lt = lightMin >= 60 ? `${(lightMin / 60).toFixed(1)} hours` : `${Math.round(lightMin)} minutes`;
-        Voice.say(`${body === "Sun" ? "The Sun" : body} is about ${big} miles away right now. Its light takes about ${lt} to reach you.`);
+        return (`${body === "Sun" ? "The Sun" : body} is about ${big} miles away right now. Its light takes about ${lt} to reach you.`);
       }
       return;
     }
     if (target.type === "object") {
       const o = app.byId.get(target.id);
-      Voice.say(o.star.ly ? `${target.label} is about ${o.star.ly.toLocaleString()} light-years away. The light you'd see tonight left it about ${o.star.ly.toLocaleString()} years ago.`
+      return (o.star.ly ? `${target.label} is about ${o.star.ly.toLocaleString()} light-years away. The light you'd see tonight left it about ${o.star.ly.toLocaleString()} years ago.`
         : `I don't have a reliable distance for ${target.label}.`);
       return;
     }
     if (target.type === "con") {
       const ds = [...new Set(S.lines[target.id].flat())].map((i) => S.stars[i].ly).filter(Boolean).sort((a, b) => a - b);
-      Voice.say(ds.length ? `The stars of ${target.label} aren't the same distance away. Its main stars range from about ${ds[0].toLocaleString()} to ${ds[ds.length - 1].toLocaleString()} light-years.`
+      return (ds.length ? `The stars of ${target.label} aren't the same distance away. Its main stars range from about ${ds[0].toLocaleString()} to ${ds[ds.length - 1].toLocaleString()} light-years.`
         : `The stars of ${target.label} are at many different distances.`);
       return;
     }
-    Voice.say("That's a direction, not an object.");
+    return ("That's a direction, not an object.");
   }
+  function answerDistance(target) { Voice.say(distanceSentence(target)); }
+
 
   function answerMoonPhase() {
     const ph = Astro.moonPhase(new Date());
@@ -980,10 +1217,10 @@
       const a = Astro.angleBetween(f, best.vec);
       t += a < LOCK_ANGLE + 1 ? ` You're right on ${nameOf(best) === "Moon" ? "the Moon" : nameOf(best)}. ${describe(best)}`
         : ` The nearest bright object is ${nameOf(best) === "Moon" ? "the Moon" : nameOf(best)}, ${relativeWords(f, best.vec)}.`;
-      app.lastTopic = { kind: "obj", id: best.id };
+      app.lastTopic = { kind: "obj", id: best.id, at: performance.now() };
     } else {
       t += " There are no bright stars right here. Try sweeping slowly, or ask what's up tonight.";
-      if (con) app.lastTopic = { kind: "con", id: con };
+      if (con) app.lastTopic = { kind: "con", id: con, at: performance.now() };
     }
     Voice.say(t);
   }
@@ -1105,6 +1342,8 @@
   }
 
   function updateStatus(f) {
+    updateTopicCard();
+    compassCheck();
     const p = Astro.enuToAltAz(f);
     const sensorOk = Sensors.receiving();
     const where = `Aiming ${Math.round(p.alt)}° up, toward the ${Astro.compassWord(p.az)}`;
@@ -1116,6 +1355,15 @@
       const label = app.mode === "find" && app.target ? `Finding ${app.target.label}` : app.tour ? "Tour" : "";
       mode.textContent = label;
       el("modePill").hidden = !label;
+    }
+  }
+
+  // iPhones report how trustworthy the compass is; warn once if it's poor
+  function compassCheck() {
+    const acc = Sensors.state.accuracy;
+    if (!app.running || app.compassWarned || Sensors.state.mode !== "phone" || acc == null) return;
+    if ((acc < 0 || acc > 25) && performance.now() - app.startedAt > 4000) {
+      if (Voice.say("Your compass may be off. Wave the phone slowly in a figure eight a few times to calibrate it.", { auto: true })) app.compassWarned = true;
     }
   }
 
@@ -1176,6 +1424,7 @@
     rebuildSky();
     setInterval(rebuildSky, 5000);
     app.running = true;
+    app.startedAt = performance.now();
     keepAwake();
     const prefs = Prefs.load();
     const voiceHint = !Listen.supported() ? "" : practice ? "Press the space bar and say help, any time. " :
@@ -1227,17 +1476,36 @@
     el("stopBtn").onclick = () => stopAll();
     el("srMode").onchange = (e) => { Voice.setScreenReader(e.target.checked); Prefs.save({ sr: e.target.checked }); };
     el("conNames").onchange = (e) => Prefs.save({ conNames: e.target.checked });
+    el("autoNames").onchange = (e) => Prefs.save({ autoNames: e.target.checked });
+    el("focus").onchange = (e) => { setFocus(e.target.value); Prefs.save({ focus: e.target.value }); };
+    el("detail").onchange = (e) => { setDetail(e.target.value); Prefs.save({ detail: e.target.value }); };
+    el("topicMore").onclick = () => runCommand({ action: "describe", ref: "topic" });
+    el("topicNear").onclick = nearby;
+    el("topicGo").onclick = () => runCommand({ action: "find", ref: "topic" });
+    el("journalBtn").onclick = renderJournal;
+    document.addEventListener("visibilitychange", () => {
+      // phones pause sound when the screen locks or you switch apps; pick back up cleanly
+      if (document.visibilityState === "visible" && app.running) { Sound.init(); keepAwake(); rebuildSky(); }
+    });
     el("volume").oninput = (e) => { Sound.setVolume(Number(e.target.value)); Prefs.save({ volume: Number(e.target.value) }); };
     el("rate").oninput = (e) => { Voice.setRate(Number(e.target.value)); Prefs.save({ rate: Number(e.target.value) }); };
     el("rate").onchange = () => Voice.say("This is how fast I'll speak.");
     el("decl").onchange = (e) => { Sensors.state.declination = Number(e.target.value) || 0; Prefs.save({ decl: Sensors.state.declination }); };
     el("timeMode").onchange = (e) => { app.timeMode = e.target.value; rebuildSky(); };
     Listen.setHandlers({
-      onCommand: (alts) => { Sound.earcon("done"); runCommand(Commands.parseAlternatives(alts)); },
+      onCommand: (alts, info = { wake: true }) => {
+        const cmd = Commands.parseAlternatives(alts);
+        // in the hands-free follow-up window, ignore speech that isn't a command (people chatting nearby)
+        if (!info.wake && ["unknown", "none", "findUnknown"].includes(cmd.action)) return;
+        Sound.earcon("done");
+        runCommand(cmd);
+      },
+      onFollowUp: () => Sound.earcon("ready"),
       onState: onListenState,
       onWake,
     });
     Listen.setSpeakingCheck(() => Voice.speaking());
+    Voice.onIdle(() => Listen.speechDone());
     el("handsFreeBtn").onclick = () => setHandsFree(!Listen.handsFree());
     el("logBtn").onclick = () => logSummary("month");
     el("moonBtn").onclick = answerMoonPhase;
@@ -1279,6 +1547,9 @@
     if (typeof p.rate === "number") { Voice.setRate(p.rate); el("rate").value = p.rate; }
     if (typeof p.decl === "number") { Sensors.state.declination = p.decl; el("decl").value = p.decl; }
     if (typeof p.conNames === "boolean") el("conNames").checked = p.conNames;
+    if (typeof p.autoNames === "boolean") el("autoNames").checked = p.autoNames;
+    if (p.focus) el("focus").value = setFocus(p.focus);
+    if (p.detail) { setDetail(p.detail); el("detail").value = p.detail; }
     if (p.sr) { el("srMode").checked = true; Voice.setScreenReader(true); }
   }
 
@@ -1294,6 +1565,6 @@
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
 
-  window.StarSound = { app, rebuildSky, describe, skyTonight, whatsHere, playConstellation, runCommand, Log,
+  window.StarSound = { app, rebuildSky, describe, skyTonight, whatsHere, playConstellation, runCommand, Log, renderJournal, nearby, describeTarget,
     startTour, nextStop, tellMore, findTarget, resolveRef }; // for testing
 })();

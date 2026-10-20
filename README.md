@@ -30,6 +30,8 @@ A blind user is holding the phone up at the sky, so nothing requires finding a b
 
 - **Tap anywhere** on the screen (while using the phone's sensors) to talk.
 - **Hands-free mode** (say "hands free on", or choose "Start hands-free"): the microphone stays on, and commands start with the wake phrase **"Hey Star"**, as in "Hey Star, is Saturn up?" Saying just "Hey Star" arms it for the next sentence. Ordinary conversation is ignored, and the microphone pauses while the app is speaking. This also works with the phone strapped to a headband, so the app follows your head.
+- **Conversation flow:** hold still on something and StarSound says "You're on Saturn, a planet." Then just ask "describe it", "what's nearby", or "how far is it". In hands-free mode, a soft chime after each answer means you can reply for a few seconds without saying "Hey Star". People chatting nearby are ignored.
+- **A calm, focused listening circle:** about 22 degrees across (adjustable: narrow, normal, wide), up to 5 stars at once, and only stars you could realistically see from a suburb. Names are announced only when you hold still, and only for the Moon, planets, and the brightest stars.
 - **Sound cues** signal listening, done, and not understood. A spoken welcome explains everything on first use.
 
 ### What you can say
@@ -48,6 +50,12 @@ A blind user is holding the phone up at the sky, so nothing requires finding a b
 | When's the next meteor shower? | Next shower, date, and where to listen |
 | What have I seen this month? / Have I seen Saturn? | Your observing log (tonight, this week, month, year, or ever) |
 | Why do stars twinkle? / What is a light-year? / What's a black hole? | Answers to about 25 common astronomy questions, offline |
+| Describe it / What color is it? / How hot is it? | Full description of what you're on: color, temperature, brightness, distance, story |
+| What's nearby? / What's around it? | The closest bright objects, and which way they are from it |
+| How far is it? / When does it set? / Is it up? / Take me there | Follow-ups: "it" means whatever you're on or just asked about |
+| What's the brightest thing in the sky? | Brightest object and brightest star up right now |
+| Narrower / Wider | Change how much of the sky you hear at once |
+| What did I see last night? | Your sky journal, by night |
 | Tell me more / Tell me about Vega / Why is Mars red? | Stories |
 | Play this constellation | Constellation melody |
 | Pause, Resume, Louder, Quieter, Speak slower/faster, Repeat, Help, Stop | Controls |

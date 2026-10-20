@@ -19,6 +19,7 @@
   $("openSettings").addEventListener("click", () => open("settingsSheet"));
   $("openMore").addEventListener("click", () => open("moreSheet"));
   $("privacyBtn").addEventListener("click", () => { close($("moreSheet")); open("privacySheet"); });
+  $("journalBtn").addEventListener("click", () => { close($("moreSheet")); open("journalSheet"); });
   $("clearLogBtn").addEventListener("click", () => {
     if (!confirm("Erase everything in your observing log?")) return;
     if (window.StarSound) StarSound.Log.clear();

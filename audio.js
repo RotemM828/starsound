@@ -102,9 +102,10 @@ const Sound = (() => {
   //   error = low double buzz (didn't understand).
   function earcon(type) {
     if (!ctx) return;
-    const seq = { listen: [523, 784], done: [784, 523], error: [196, 196] }[type];
+    const seq = { listen: [523, 784], done: [784, 523], error: [196, 196], ready: [1047] }[type];
     if (!seq) return;
-    seq.forEach((f, i) => setTimeout(() => ping([0, 0, 1], f, 0.45, type === "error" ? "planet" : "star", 0.18), i * 120));
+    const gain = type === "ready" ? 0.18 : 0.45; // "ready" is a soft cue: you can reply now
+    seq.forEach((f, i) => setTimeout(() => ping([0, 0, 1], f, gain, type === "error" ? "planet" : "star", 0.18), i * 120));
   }
 
   let volume = 0.8;
@@ -154,6 +155,10 @@ const Voice = (() => {
   let current = null;        // the utterance being spoken now
   let watchdog = null;
   let chosenVoice = null;
+  let idleListeners = [];
+  let srIdleTimer = null;
+  function onIdle(fn) { idleListeners.push(fn); }
+  function fireIdle() { for (const fn of idleListeners) { try { fn(); } catch (_) {} } }
   const synth = typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis : null;
 
   const NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|junior|organ|superstar|trinoids|whisper|wobble|zarvox|deranged|hysterical|grandma|grandpa|eddy|flo\b|reed|rocko|sandy|shelley|ralph|fred|kathy|princess/i;
@@ -206,7 +211,8 @@ const Voice = (() => {
 
   // split into sentences, then pack them into pieces under ~200 characters
   function chunks(text) {
-    const sentences = text.match(/[^.!?]+[.!?]+["')]?|[^.!?]+$/g) || [text];
+    // split after . ! ? followed by a space, so decimals like "1.2 hours" stay whole
+    const sentences = text.split(/(?<=[.!?]["')]?)\s+/);
     const out = [];
     let cur = "";
     for (let s of sentences) {
@@ -238,7 +244,11 @@ const Voice = (() => {
       lastUserAt = now;
     }
     lastText = text; lastAt = now; lastSpoken = text;
-    if (useScreenReader) srBusyUntil = now + (text.split(/\s+/).length / 2.6) * 1000 / rate + 500;
+    if (useScreenReader) {
+      srBusyUntil = now + (text.split(/\s+/).length / 2.6) * 1000 / rate + 500;
+      clearTimeout(srIdleTimer);
+      srIdleTimer = setTimeout(fireIdle, srBusyUntil - now);
+    }
     if (live) live.textContent = text; // captions for sighted companions and low-vision users
     if (useScreenReader) {
       if (live) {
@@ -275,7 +285,7 @@ const Voice = (() => {
       if (current !== u) return;
       current = null;
       clearTimeout(watchdog);
-      pump();
+      if (queue.length) pump(); else fireIdle(); // finished everything: tell listeners
     };
     u.onend = done;
     u.onerror = done;
@@ -303,5 +313,5 @@ const Voice = (() => {
     return !!current || queue.length > 0 || synth.speaking;
   }
 
-  return { attach, say, setScreenReader, speaking, setRate, getRate, repeat, cancel, unlock, voiceName, chunks, clean };
+  return { attach, say, setScreenReader, speaking, setRate, getRate, repeat, cancel, unlock, voiceName, chunks, clean, onIdle };
 })();

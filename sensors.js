@@ -25,6 +25,7 @@ const Sensors = (() => {
     simAlt: 35, simAz: 180,  // simulated pointing for desktop / demo
     lastEvent: 0,
     absolute: false,
+    accuracy: null,          // iPhone: compass accuracy in degrees (-1 = needs calibration)
   };
 
   function pointingFromAngles(alphaDeg, betaDeg, gammaDeg) {
@@ -47,6 +48,7 @@ const Sensors = (() => {
   function onOrientation(e) {
     if (e.alpha == null || e.beta == null || e.gamma == null) return;
     let alpha = e.alpha;
+    if (typeof e.webkitCompassAccuracy === "number") state.accuracy = e.webkitCompassAccuracy;
     if (typeof e.webkitCompassHeading === "number") {
       // iOS: alpha is relative to where the phone started; webkitCompassHeading is
       // magnetic. Learn the offset while the phone is not near vertical, where the

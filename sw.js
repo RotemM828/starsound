@@ -1,6 +1,6 @@
 // sw.js — keeps a copy of StarSound on the phone so it works at dark-sky
 // sites with no cell signal. Bump VERSION whenever you change any file.
-const VERSION = "starsound-v7";
+const VERSION = "starsound-v8";
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest",
   "./sky-data.js", "./stories.js", "./faq.js", "./astronomy.browser.min.js",

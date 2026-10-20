@@ -12,6 +12,8 @@
 //     "Hey Star" ("Hey Star, find Jupiter"), so normal conversation is ignored.
 //     Saying just "Hey Star" arms it for the next sentence. The microphone pauses
 //     while the app is talking, so it never hears itself.
+//     Follow-ups: right after the app finishes speaking, a soft chime plays and for
+//     a few seconds you can reply without the wake phrase ("describe it").
 
 const Listen = (() => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -21,7 +23,9 @@ const Listen = (() => {
   let armedUntil = 0;          // hands-free: accept a command without the wake phrase until then
   let isSpeaking = () => false;
   let watchdog = null;
-  let handlers = { onCommand: () => {}, onState: () => {}, onWake: () => {} };
+  let handlers = { onCommand: () => {}, onState: () => {}, onWake: () => {}, onFollowUp: () => {} };
+  let wasSpeaking = false;
+  const FOLLOW_UP_MS = 7000;
 
   const WAKE = /^(hey |hi |ok |okay )?(star sound|starsound|stars|star|starr|starz)\b[ ,.!]*/i;
 
@@ -55,7 +59,7 @@ const Listen = (() => {
       const alts = [];
       for (let i = 0; i < res.length; i++) alts.push(res[i].transcript);
       if (mode === "handsfree") handleHandsFree(alts);
-      else handlers.onCommand(alts);
+      else handlers.onCommand(alts, { wake: true });
     };
     rec.onerror = (e) => {
       gotResult = true;
@@ -93,11 +97,12 @@ const Listen = (() => {
         const rest = text.slice(m[0].length).trim();
         if (!rest) { armedUntil = now + 8000; handlers.onWake(); return; }
         armedUntil = 0;
-        handlers.onCommand([rest, ...alts.filter((x) => x !== a).map((x) => x.replace(WAKE, "").trim())]);
+        handlers.onCommand([rest, ...alts.filter((x) => x !== a).map((x) => x.replace(WAKE, "").trim())], { wake: true });
         return;
       }
     }
-    if (now < armedUntil) { armedUntil = 0; handlers.onCommand(alts); }
+    // within the follow-up window (or after a bare "Hey Star"), no wake phrase is needed
+    if (now < armedUntil) { armedUntil = 0; handlers.onCommand(alts, { wake: false }); }
     // otherwise: ordinary conversation, ignore it
   }
 
@@ -120,5 +125,12 @@ const Listen = (() => {
     return on;
   }
 
-  return { supported, listening, handsFree, setHandlers, setSpeakingCheck, start, stop, setHandsFree, WAKE };
+  // called when the app finishes speaking: for a few seconds, a reply needs no wake phrase
+  function speechDone() {
+    if (mode !== "handsfree") return;
+    armedUntil = Date.now() + FOLLOW_UP_MS;
+    handlers.onFollowUp();
+  }
+
+  return { supported, listening, handsFree, setHandlers, setSpeakingCheck, start, stop, setHandsFree, speechDone, WAKE };
 })();

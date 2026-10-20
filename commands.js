@@ -99,6 +99,14 @@ const Commands = (() => {
     return best;
   }
 
+  // "it", "that", "this one": whatever we were just talking about
+  const PRONOUN = /^(it|that|this|this one|that one|there|that star|this star|that planet|this planet|the thing|that thing|him|her)$/;
+  function refIn(text) {
+    const t = stripThe(normalize(text)).replace(/ (now|tonight|right now|again|please|from here|from earth|away)$/g, "").trim();
+    if (PRONOUN.test(t)) return "topic";
+    return matchTarget(t);
+  }
+
   const has = (t, phrases) => phrases.some((p) => (" " + t + " ").includes(" " + p + " "));
   const is = (t, phrases) => phrases.includes(t);
 
@@ -125,6 +133,7 @@ const Commands = (() => {
   }
 
   function period(t) {
+    if (has(t, ["last night", "yesterday"])) return "lastnight";
     if (has(t, ["tonight", "today", "this evening"])) return "night";
     if (has(t, ["this week", "week"])) return "week";
     if (has(t, ["this year", "year"])) return "year";
@@ -163,10 +172,10 @@ const Commands = (() => {
     if (has(t, ["clear my log", "delete my log", "erase my log", "reset my log", "clear the log", "delete the log", "erase my list", "clear my list"])) return r("logClear");
     if (has(t, ["confirm clear", "yes clear", "yes delete", "yes erase", "confirm delete"])) return r("logClearConfirm");
     if ((m = t.match(/^(have|did) i (ever )?(seen|found|see|find|spotted|spot) (.+)$/))) {
-      const ref = matchTarget(m[4].replace(/ (yet|before|ever|this month|this week|this year|tonight)$/, ""));
+      const ref = refIn(m[4].replace(/ (yet|before|ever|this month|this week|this year|tonight)$/, ""));
       if (ref) return r("logHas", { ref });
     }
-    if (has(t, ["what have i seen", "what have i found", "what did i see", "what did i find", "my log", "observing log",
+    if (has(t, ["what have i seen", "what have i found", "what did i see", "what did i find", "my log", "observing log", "what did i observe",
       "my list", "what have i spotted", "what ive seen", "what i have seen", "what i've seen"]) ||
       /how many (\w+ )?(stars|planets|constellations|things|objects)? ?(have i|did i) (seen|found|see|find)/.test(t) ||
       /(planets|stars|constellations) (have i|did i) (seen|found|see|find)/.test(t)) {
@@ -186,15 +195,15 @@ const Commands = (() => {
     if (has(t, ["moonrise", "moon rise"])) return r("riseSet", { ref: "planet:Moon", dir: "rise" });
     if (has(t, ["moonset", "moon set"])) return r("riseSet", { ref: "planet:Moon", dir: "set" });
     if ((m = t.match(/^(when|what time) (does|will|is|do) (.+?) (rise|rising|come up|coming up|set|setting|go down|going down)\b/))) {
-      const ref = matchTarget(m[3]);
+      const ref = refIn(m[3]);
       if (ref) return r("riseSet", { ref, dir: /rise|rising|up/.test(m[4]) ? "rise" : "set" });
     }
     if ((m = t.match(/^(is|are|can i see|will i see|can we see|could i see|will i be able to see|is there) (.+?)( up| out| visible| in the sky| tonight| right now| now| yet| still up)*$/))) {
-      const ref = matchTarget(m[2]);
+      const ref = refIn(m[2]);
       if (ref) return r("visible", { ref });
     }
     if ((m = t.match(/^(how far (away )?(is|are)|whats the distance to|what is the distance to|distance to) (.+?)( away| from here| from earth| from us)*$/))) {
-      const ref = matchTarget(m[4]);
+      const ref = refIn(m[4]);
       if (ref) return r("distance", { ref });
     }
 
@@ -206,12 +215,28 @@ const Commands = (() => {
     if (has(t, ["faster", "speed up", "speak faster", "talk faster"])) return r("faster");
     if (has(t, ["repeat", "say that again", "say again", "what did you say", "again"])) return r("repeat");
     if (has(t, ["calibrate", "calibration", "recalibrate"])) return r("calibrate");
-    if (has(t, ["next", "next stop", "skip", "go on", "keep going"])) return r("next");
+    if (has(t, ["next", "next stop", "skip", "go on", "keep going"]) && !has(t, ["next to", "next full", "next new", "next meteor", "next shower"])) return r("next");
     if (has(t, ["tour", "show me around", "guided", "give me a tour"])) return r("tour");
 
     // time travel
     if (has(t, ["switch to now", "right now mode", "real time", "use now", "current time", "back to now"])) return r("timeNow");
     if (has(t, ["9 pm", "nine pm", "9pm", "switch to tonight", "tonight mode", "later tonight"])) return r("timeTonight");
+
+    // follow-ups about the current object
+    if (has(t, ["describe it", "describe that", "describe this", "describe", "details", "more details", "tell me about it",
+      "tell me about that", "tell me about this", "what is it", "what does it look like", "what color is it",
+      "how hot is it", "how bright is it", "what kind of star", "what type of star", "more about it", "more about that",
+      "more information", "more info", "explain it", "explain that"])) {
+      const ref = refIn(t.replace(/^(describe|tell me about|more about|explain)\s*/, "")) ;
+      return r("describe", { ref: ref && ref !== "topic" ? ref : "topic" });
+    }
+    if (has(t, ["whats nearby", "what is nearby", "whats near it", "what is near it", "whats near that", "whats around it",
+      "what is around it", "whats around here", "whats next to it", "what is next to it", "anything nearby", "anything else nearby",
+      "what else is here", "what else is near", "nearby", "near it", "around it", "neighbors", "whats close to it"])) return r("nearby");
+    if (has(t, ["brightest", "the brightest thing", "brightest star", "brightest planet", "brightest object"])) return r("brightest");
+    if (has(t, ["narrower", "smaller circle", "focus in", "zoom in", "tighter", "fewer stars", "less stars"])) return r("focus", { dir: "narrower" });
+    if (has(t, ["wider", "bigger circle", "zoom out", "more stars", "broader"])) return r("focus", { dir: "wider" });
+    if (has(t, ["my journal", "sky journal", "open journal", "show journal"])) return r("log", { period: "all" });
 
     // "tell me about X" / "tell me more"
     if (has(t, ["tell me more", "more", "story", "tell me a story", "more about it", "more about that", "tell me the story"]) &&
@@ -227,9 +252,10 @@ const Commands = (() => {
       "whats in front of me"])) return r("here");
 
     // find X
+    if (has(t, ["take me there", "go there", "point me there", "find it", "show me it", "guide me there", "take me to it", "center on it", "lead me there"])) return r("find", { ref: "topic" });
     const findRest = afterPrefix(t, FIND_PREFIXES);
     if (findRest !== null) {
-      const ref = matchTarget(findRest);
+      const ref = refIn(findRest);
       if (ref) return r("find", { ref });
       if (has(t, ["planets", "the planets"])) return r("tonight");
       return r("findUnknown", { said: findRest });
@@ -270,7 +296,7 @@ const Commands = (() => {
   }
 
   const HELP = "Here's what you can ask. What am I pointing at? What's up tonight? Find Jupiter, or, find the Big Dipper. " +
-    "Take me on a tour. Is Saturn up? What's the moon phase? Tell me more. " +
+    "Take me on a tour. When you're on something, ask: describe it, what's nearby, or, how far is it. " +
     "You can also ask astronomy questions, like, why do stars twinkle? To hear every command, say: all commands.";
 
   const HELP_ALL = "Every command. Pointing: What am I pointing at. Which way is north. " +
@@ -278,9 +304,10 @@ const Commands = (() => {
     "Tours: Take me on a tour. Next. " +
     "Sky questions: What's up tonight. Is Mars up. When does the Moon rise. When does Orion set. When is sunset. " +
     "When does it get dark. What's the moon phase. When is the next full moon. How far is Jupiter. When is the next meteor shower. " +
-    "Learning: Tell me more. Tell me about Vega. Play this constellation. And questions like, what is a light-year. " +
-    "Your log: What have I seen this month. Have I seen Saturn. " +
-    "Sound: Pause. Resume. Louder. Quieter. Speak slower. Speak faster. Repeat. " +
+    "About the thing you're on: Describe it. What's nearby. How far is it. When does it set. Take me there. " +
+    "Learning: Tell me more. Tell me about Vega. What's the brightest thing in the sky. Play this constellation. And questions like, what is a light-year. " +
+    "Your journal: What have I seen this month. What did I see last night. Have I seen Saturn. " +
+    "Sound: Pause. Resume. Louder. Quieter. Speak slower. Speak faster. Repeat. Narrower, or wider, to change how many stars you hear. " +
     "Hands-free: say hands free on, then start each command with Hey Star. Say hands free off to stop.";
 
   return { parse, parseAlternatives, setVocabulary, matchTarget, matchFaq, normalize, editDistance, HELP, HELP_ALL };

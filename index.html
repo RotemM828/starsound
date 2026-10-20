@@ -191,6 +191,19 @@
       background: rgba(243,230,207,0.06); font-weight: 600;
     }
     .note { color: var(--mist); font-size: 14px; margin: 14px 0 0; }
+    .topic {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      margin: 0 0 10px; padding: 8px 8px 8px 14px; border-radius: 18px;
+      background: rgba(156,201,255,0.10); border: 1px solid rgba(156,201,255,0.35);
+    }
+    .topic-label { font-size: 15px; color: var(--mist); }
+    .topic-label strong { color: var(--cream); font-size: 17px; }
+    .topic-actions { display: flex; gap: 6px; }
+    .topic-actions button {
+      min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line);
+      background: rgba(7,11,31,0.5); font-size: 14px; font-weight: 600;
+    }
+    .journal-night { margin: 0 0 6px; font-size: 17px; line-height: 1.45; }
     .privacy p { margin: 0 0 14px; color: var(--mist); max-width: 60ch; }
     .privacy strong { color: var(--cream); }
 
@@ -237,6 +250,14 @@
       <div class="status-row">
         <div id="status" aria-hidden="true"></div>
         <div id="modePill" hidden><span id="modeText"></span><button id="stopBtn">Stop</button></div>
+      </div>
+      <div id="topicCard" class="topic" hidden aria-label="What you're on">
+        <span class="topic-label">On <strong id="topicName"></strong></span>
+        <span class="topic-actions">
+          <button id="topicMore">Describe</button>
+          <button id="topicNear">Nearby</button>
+          <button id="topicGo">Center</button>
+        </span>
       </div>
       <div class="sheet">
         <button id="talkBtn" aria-pressed="false" aria-describedby="talkHelp">Tap to talk</button>
@@ -291,13 +312,21 @@
     <div class="sheet-body">
       <button class="row-btn" id="moreBtn" data-closes>Tell me more <span class="hint">story of what you just heard</span></button>
       <button class="row-btn" id="conBtn" data-closes>Play this constellation <span class="hint">its shape as a melody</span></button>
-      <button class="row-btn" id="logBtn" data-closes>What have I seen? <span class="hint">this month's log</span></button>
+      <button class="row-btn" id="logBtn" data-closes>What have I seen this month? <span class="hint">spoken summary</span></button>
+      <button class="row-btn" id="journalBtn">Sky journal <span class="hint">everything you've found, night by night</span></button>
       <button class="row-btn" id="handsFreeBtn" aria-pressed="false">Hands-free: off</button>
       <button class="row-btn" id="pauseBtn" aria-pressed="false" data-closes>Pause sounds</button>
       <button class="row-btn" id="helpBtn" data-closes>What can I say? <span class="hint">all voice commands</span></button>
       <button class="row-btn" id="tutorialBtn" data-closes>How does it work? <span class="hint">what the sounds mean</span></button>
       <button class="row-btn" id="privacyBtn">Privacy and security <span class="hint">what StarSound does with your data</span></button>
     </div>
+  </dialog>
+
+  <!-- Journal -->
+  <dialog id="journalSheet" aria-labelledby="journalTitle">
+    <div class="sheet-head"><h2 id="journalTitle">Sky journal</h2><button class="icon-btn" data-close aria-label="Close"><span aria-hidden="true">✕</span></button></div>
+    <div class="sheet-body"><div id="journalList"></div>
+      <p class="note">You can also ask: what did I see last night, or, have I seen Saturn.</p></div>
   </dialog>
 
   <!-- Privacy -->
@@ -318,7 +347,12 @@
     <div class="sheet-head"><h2 id="settingsTitle">Settings</h2><button class="icon-btn" data-close aria-label="Close"><span aria-hidden="true">✕</span></button></div>
     <div class="sheet-body">
       <div class="setting"><label for="srMode">Use my screen reader<span class="hint">Speak through VoiceOver or TalkBack instead of the app's voice</span></label><input type="checkbox" id="srMode"></div>
+      <div class="setting"><label for="autoNames">Name bright stars and planets when I hold still<span class="hint">The Moon, planets, and the brightest stars</span></label><input type="checkbox" id="autoNames" checked></div>
       <div class="setting"><label for="conNames">Name constellations as I sweep</label><input type="checkbox" id="conNames" checked></div>
+      <div class="setting"><label for="focus">Listening circle<span class="hint">How much of the sky you hear at once</span></label>
+        <select id="focus"><option value="narrow">Narrow</option><option value="normal" selected>Normal</option><option value="wide">Wide</option></select></div>
+      <div class="setting"><label for="detail">Stars you hear<span class="hint">Fewer stars sound calmer</span></label>
+        <select id="detail"><option value="fewest">Brightest only</option><option value="bright" selected>Bright</option><option value="more">Many</option></select></div>
       <div class="setting"><label for="below">Include stars below the horizon</label><input type="checkbox" id="below"></div>
       <div class="setting"><label for="volume">Star volume</label><input type="range" id="volume" min="0" max="1.5" step="0.05" value="0.8"></div>
       <div class="setting"><label for="rate">Speaking speed</label><input type="range" id="rate" min="0.6" max="1.8" step="0.05" value="1"></div>

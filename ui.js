@@ -18,6 +18,12 @@
 
   $("openSettings").addEventListener("click", () => open("settingsSheet"));
   $("openMore").addEventListener("click", () => open("moreSheet"));
+  $("privacyBtn").addEventListener("click", () => { close($("moreSheet")); open("privacySheet"); });
+  $("clearLogBtn").addEventListener("click", () => {
+    if (!confirm("Erase everything in your observing log?")) return;
+    if (window.StarSound) StarSound.Log.clear();
+    Voice.say("Your observing log is erased.");
+  });
   $("openFind").addEventListener("click", () => {
     $("findSearch").value = "";
     renderFind("");
@@ -62,9 +68,9 @@
       }
       const b = document.createElement("button");
       b.setAttribute("role", "listitem");
-      b.innerHTML = `<span></span><span class="hint"></span>`;
-      b.firstChild.textContent = it.label;
-      b.lastChild.textContent = it.hint;
+      const name = document.createElement("span"); name.textContent = it.label;
+      const hint = document.createElement("span"); hint.className = "hint"; hint.textContent = it.hint;
+      b.append(name, hint);
       b.addEventListener("click", () => {
         const sel = $("target");
         let opt = [...sel.options].find((o) => o.value === it.value);

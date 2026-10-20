@@ -575,6 +575,9 @@
       case "stop": return stopAll();
       case "help": return Voice.say(Commands.HELP);
       case "helpAll": return Voice.say(Commands.HELP_ALL);
+      case "privacy": return Voice.say("StarSound has no account, no tracking and no ads. Your location and the phone's motion stay on this phone. " +
+        "The microphone is only on while you talk, or in hands-free mode, and your phone's own speech service turns your words into text. " +
+        "StarSound never records or stores your voice. Your observing log stays on this phone, and you can say clear my log to erase it.");
       case "tutorial": return tutorial();
       case "pause": return setPaused(true);
       case "resume": return setPaused(false);

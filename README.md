@@ -80,11 +80,24 @@ It's plain HTML and JavaScript with no build step and no accounts needed.
 
 The star-position math was checked against the astronomy-engine library and matches within 0.002°. Star positions use J2000 catalog coordinates; precession since 2000 shifts them by about 0.4°, far smaller than phone compass error.
 
+## Security and privacy
+
+StarSound was designed to collect as little as possible and to keep what it uses on the user's own phone.
+
+- **No accounts, no server, no analytics, no ads.** The app is static files on GitHub Pages, served over HTTPS. There is nothing to log into and no database to breach.
+- **Location and motion sensors are used on the device only** to calculate the sky. They are never sent anywhere. The app asks for each permission only when the user taps Start.
+- **Microphone:** on only while the user is talking, or while hands-free mode is on. The browser's built-in speech service (Google in Chrome, Apple in Safari) turns speech into text; StarSound never records or stores audio. Every voice command also has a button.
+- **Observing log and settings** are stored only in the phone's local storage. Users can erase the log from the Privacy page or by saying "clear my log" (with a confirmation step).
+- **No third-party code at runtime.** The astronomy library and the font ship inside the app (pinned versions), so the page never loads scripts from other websites. A Content Security Policy blocks scripts, fonts, and connections from anywhere except the app's own site, and the offline cache stores only the app's own files.
+- **Safe handling of text:** everything the user says is displayed as plain text, never inserted as HTML, so spoken or typed input can't inject code.
+- **A Privacy page inside the app** explains all of this in plain language, and users can ask "Is my data private?" by voice.
+
 ## Credits and licenses
 
 - Star data: [HYG Database](https://github.com/astronexus/HYG-Database) by David Nash (astronexus), CC BY-SA 4.0.
 - Constellation lines and boundaries: [d3-celestial](https://github.com/ofrohn/d3-celestial) by Olaf Frohn, BSD-3-Clause.
 - Moon and planet positions: [astronomy-engine](https://github.com/cosinekitty/astronomy) by Don Cross, MIT license.
+- Font: [Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next), designed with the Braille Institute for low-vision readers, SIL Open Font License (see `font-license.txt`).
 
 ## AI use disclosure
 

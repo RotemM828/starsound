@@ -143,6 +143,7 @@ const Commands = (() => {
     if (is(t, ["stop", "cancel", "never mind", "nevermind", "stop finding", "end tour", "stop tour", "quit"])) return r("stop");
     if (has(t, ["all commands", "every command", "full list", "more commands", "all the commands", "list of commands"])) return r("helpAll");
     if (has(t, ["what can i say", "what can you do", "commands", "instructions"]) || is(t, ["help", "help me", "help please"])) return r("help");
+    if (has(t, ["privacy", "private", "my data", "what data", "is it safe", "is this safe", "security", "do you record", "are you recording", "are you listening"])) return r("privacy");
     if (has(t, ["how does this work", "how does it work", "explain the sounds", "what do the sounds mean", "tutorial"])) return r("tutorial");
 
     // hands-free listening

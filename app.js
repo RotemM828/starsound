@@ -754,7 +754,13 @@
     }
     switch (a) {
       case "here": return whatsHere();
-      case "nearby": return nearby();
+      case "nearby": {
+        if (cmd.ref) { // "what's near Saturn": make Saturn the topic first
+          const tg = resolveRef(cmd.ref);
+          if (tg && (tg.type === "object" || tg.type === "con")) app.lastTopic = { kind: tg.type === "object" ? "obj" : "con", id: tg.id, at: performance.now() };
+        }
+        return nearby();
+      }
       case "brightest": return brightest();
       case "settings": return settingsSummary();
       case "resetSettings": {
@@ -840,7 +846,7 @@
       case "findUnknown":
         return Voice.say(`I don't know ${cmd.said || "that"} yet. Try a planet, a bright star, or a constellation, like Find Orion.`);
       default:
-        return Voice.say(cmd.heard ? `Sorry, I heard: ${cmd.heard}. Say help to hear what you can say.` : "I didn't catch that.");
+        return Voice.say(cmd.heard ? `Sorry, I heard: ${cmd.heard}, and I'm not sure what you mean. Try: what am I pointing at, find Saturn, or what's up tonight. Or say help.` : "I didn't catch that. Tap and try again.");
     }
   }
 

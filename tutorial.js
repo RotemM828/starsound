@@ -1,7 +1,8 @@
 // tutorial.js — a short, spoken, tap-through introduction.
 //
 // Each step is read aloud and shown on a large card, then plays a live example of the
-// sound it describes. Tap anywhere (or press Space) for the next step. It runs once
+// sound it describes. Tap anywhere, or say "next", for the next step ("back", "repeat"
+// and "skip" work too). It runs once
 // the first time StarSound starts, and any time you say "tutorial" or open
 // "How does it work?".
 
@@ -13,7 +14,7 @@ const Tutorial = (() => {
   const STEPS = [
     {
       title: "Welcome to StarSound",
-      text: "StarSound lets you hear the night sky. This short tour explains the sounds and what you can ask. Tap anywhere on the screen to go to the next step, or tap Skip.",
+      text: "StarSound lets you hear the night sky. This short tour explains the sounds and what you can ask. To go on, tap anywhere on the screen, or just say: next. You can also say back, repeat, or skip.",
     },
     {
       title: "Point your phone at the sky",
@@ -66,7 +67,7 @@ const Tutorial = (() => {
     },
     {
       title: "You're ready",
-      text: "A few more things. Say hands free on, and then start each question with Hey Star, so you never need to touch the screen. Say help any time to hear what you can ask, or tutorial to hear this again. Tap anywhere to start exploring.",
+      text: "A few more things. Say hands free on, and then start each question with Hey Star, so you never need to touch the screen. Say help any time to hear what you can ask, or tutorial to hear this again. Say next, or tap anywhere, to start exploring.",
     },
   ];
 
@@ -110,8 +111,28 @@ const Tutorial = (() => {
   function back() { if (i > 0) go(i - 1); }
   function replay() { token++; const s = STEPS[i]; if (s.demo) s.demo(); }
 
+  // spoken controls while the tutorial is open
+  const SAY = {
+    next: /\b(next|continue|go on|keep going|okay|ok|got it|yes|forward|move on|ready|done)\b/,
+    back: /\b(back|previous|go back|last one|before)\b/,
+    repeat: /\b(repeat|again|replay|huh|pardon|one more time)\b/,
+    skip: /\b(skip|stop|exit|close|finish|end|enough|start exploring|im ready|i know|leave)\b/,
+  };
+  function heard(alts) {
+    for (const a of alts) {
+      const t = a.toLowerCase().replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+      if (!t) continue;
+      if (SAY.skip.test(t)) return finish();
+      if (SAY.back.test(t)) return back();
+      if (SAY.repeat.test(t)) return go(i);
+      if (SAY.next.test(t)) return next();
+      if (t === "what" || t === "sorry") return go(i);
+    }
+  }
+
   function open(done) {
     onDone = done || null;
+    if (typeof Listen !== "undefined" && Listen.supported()) Listen.setOpenMic(true, heard);
     const d = $("tutorial");
     if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", "");
     go(0);
@@ -120,6 +141,7 @@ const Tutorial = (() => {
 
   function finish() {
     token++;
+    if (typeof Listen !== "undefined") Listen.setOpenMic(false);
     Voice.cancel();
     const d = $("tutorial");
     if (d.close) d.close(); else d.removeAttribute("open");

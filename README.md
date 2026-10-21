@@ -41,7 +41,7 @@ Hold still on a star or planet and the app says its name, color, and distance. S
 
 ### First launch: a spoken tutorial
 
-The first time StarSound starts, a short tour (about two minutes, skippable) explains everything out loud, one step at a time, with a large card on screen. Each step plays a live example of the sound it describes: a bright and a faint star, a blue and a red star, a star on the left and the right, a planet and the Moon, the finding ping, and the listening cue. Tap anywhere to go to the next step. Say "tutorial" any time to hear it again.
+The first time StarSound starts, a short tour (about two minutes, skippable) explains everything out loud, one step at a time, with a large card on screen. Each step plays a live example of the sound it describes: a bright and a faint star, a blue and a red star, a star on the left and the right, a planet and the Moon, the finding ping, and the listening cue. Tap anywhere, or just say "next", to go to the next step ("back", "repeat" and "skip" work too). Say "tutorial" any time to hear it again.
 
 ### Sounds and what they mean
 
@@ -55,6 +55,15 @@ The first time StarSound starts, a short tour (about two minutes, skippable) exp
 | One quiet low note | Hands-free only: you can reply now without saying "Hey Star" |
 
 Everything else is spoken, so there are no unexplained beeps.
+
+### Understanding natural speech
+
+People don't speak in commands, so StarSound understands requests in two layers:
+
+1. **Patterns** for hundreds of common phrasings. Filler and polite words are removed first ("um, could you please find Mars for me" becomes "find Mars"), so they don't get in the way. Star names that phones often mishear are corrected ("serious" becomes Sirius, "beetlejuice" becomes Betelgeuse), and close misspellings are matched by edit distance.
+2. **Understanding by meaning** when no pattern fits. Each kind of request has clue words with weights ("far" and "miles" mean distance; "staring" and "aiming" mean "what's here"). StarSound adds up the clues, checks whether a star or planet was named (or "it"), and picks the most likely request. If it isn't sure, it says what it heard and suggests questions, instead of doing the wrong thing.
+
+In testing, StarSound understood 85% of sentences it had never seen before on the first try, before those sentences were used to improve it. Every phrase in the test sets (331 in total) is now understood.
 
 ### Eyes-free use
 

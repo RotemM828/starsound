@@ -4,7 +4,7 @@
 // More specific entries go first. Check facts against NASA or ESA before adding.
 
 window.FAQ = [
-  { patterns: ["how does starsound", "how do you know where", "how does this app", "how does star sound"],
+  { patterns: ["how does starsound know", "how do you know where", "how does this app know", "how does star sound know", "how do you know what"],
     answer: "I don't look at the sky with the camera. I use your location, the exact time, and the phone's compass and tilt sensors, then calculate where every star and planet is. That's why I work through clouds, and even in daytime." },
   { patterns: ["light year", "lightyear", "light years"],
     answer: "A light-year is a distance, not a time: how far light travels in one year, about 6 trillion miles. When a star is 100 light-years away, the light you're hearing about left it 100 years ago." },
@@ -12,7 +12,7 @@ window.FAQ = [
     answer: "Stars twinkle because their light passes through Earth's moving, swirling air, which bends it back and forth. Planets usually twinkle less, because they are tiny disks instead of single points of light." },
   { patterns: ["colors stars", "color star", "colors of stars", "why are stars different colors", "star colors", "star colours"],
     answer: "A star's color tells you its temperature. Blue stars are the hottest, white and yellow are in between, and red stars are the coolest. In StarSound, that's why blue stars sound high and red stars sound low." },
-  { patterns: ["difference star planet", "difference between a star and a planet", "planet and a star", "star and a planet"],
+  { patterns: ["difference star planet", "difference between a star and a planet", "planet and a star", "star and a planet", "what is a planet", "what is a star"],
     answer: "A star makes its own light by fusing atoms in its core, like our Sun. A planet makes no light of its own; we see it because it reflects sunlight." },
   { patterns: ["moon change shape", "moon phases", "why does the moon change", "phases of the moon"],
     answer: "The Moon is always half lit by the Sun. As it orbits Earth, about every 29 and a half days, we see different amounts of that sunlit half: from new moon, to full moon, and back." },
@@ -30,6 +30,8 @@ window.FAQ = [
     answer: "Besides the Sun, the closest star is Proxima Centauri, about 4.2 light-years away. It's too faint to see without a telescope, and it can't be seen from most of the United States." },
   { patterns: ["how far sun", "far away is the sun", "distance to the sun", "how far is the sun"],
     answer: "The Sun is about 93 million miles away. Its light takes about 8 minutes to reach us." },
+  { patterns: ["how hot sun", "hot is the sun", "temperature of the sun", "suns temperature"],
+    answer: "The Sun's surface is about 10,000 degrees Fahrenheit, and its core is about 27 million degrees, hot enough to fuse hydrogen into helium. That's what makes it shine." },
   { patterns: ["how big sun", "big is the sun", "size of the sun"],
     answer: "The Sun is about 109 times wider than Earth. More than a million Earths could fit inside it." },
   { patterns: ["how many planets"],
@@ -56,6 +58,10 @@ window.FAQ = [
     answer: "Polaris sits almost exactly above Earth's North Pole. As Earth spins, the whole sky seems to turn around that point, so Polaris barely moves." },
   { patterns: ["stars move", "sky move", "why do stars rise", "stars rise"],
     answer: "The stars seem to move because Earth spins, once a day. Stars rise in the east and set in the west, just like the Sun." },
+  { patterns: ["sky dark at night", "why is it dark at night", "night sky dark"],
+    answer: "At night, your side of Earth faces away from the Sun. Space itself is dark because there's very little in it to scatter light toward you, unlike our air in the daytime." },
+  { patterns: ["what is the moon made", "moon made of"],
+    answer: "The Moon is made of rock, much like Earth's outer layers. Its gray dust, called regolith, comes from billions of years of small meteorites crashing into it." },
   { patterns: ["who are you", "who made you", "what are you"],
     answer: "I'm StarSound, an app that lets you hear the night sky. Say help to hear what I can do." },
 ];

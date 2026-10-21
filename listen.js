@@ -19,7 +19,8 @@ const Listen = (() => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null;
   let active = false;          // a recognition session is running
-  let mode = "off";            // "off" | "once" | "handsfree"
+  let mode = "off";            // "off" | "once" | "handsfree" | "open"
+  let openHandler = null;      // "open" mode (the tutorial): every phrase goes straight to this handler
   let armedUntil = 0;          // hands-free: accept a command without the wake phrase until then
   let isSpeaking = () => false;
   let watchdog = null;
@@ -58,11 +59,16 @@ const Listen = (() => {
       if (!res.isFinal && res.isFinal !== undefined) return;
       const alts = [];
       for (let i = 0; i < res.length; i++) alts.push(res[i].transcript);
-      if (mode === "handsfree") handleHandsFree(alts);
+      if (mode === "open") { if (openHandler) openHandler(alts); }
+      else if (mode === "handsfree") handleHandsFree(alts);
       else handlers.onCommand(alts, { wake: true });
     };
     rec.onerror = (e) => {
       gotResult = true;
+      if (mode === "open") {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") setOpenMic(false);
+        return; // the tutorial still works by tapping
+      }
       if (mode === "handsfree") {
         if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
           setHandsFree(false);
@@ -113,7 +119,7 @@ const Listen = (() => {
       mode = "handsfree";
       // keep the microphone running, but switch it off while the app is talking
       watchdog = setInterval(() => {
-        if (mode !== "handsfree") return;
+        if (mode !== "handsfree" && mode !== "open") return;
         if (isSpeaking()) { if (active) { try { rec.abort(); } catch (_) {} active = false; } return; }
         if (!active) begin(true);
       }, 400);
@@ -132,5 +138,27 @@ const Listen = (() => {
     handlers.onFollowUp();
   }
 
-  return { supported, listening, handsFree, setHandlers, setSpeakingCheck, start, stop, setHandsFree, speechDone, WAKE };
+  // Open mic: always listening, no wake phrase, paused while the app talks.
+  // Used by the tutorial so people can say "next", "back", "repeat" or "skip".
+  function setOpenMic(on, handler) {
+    if (on && !SR) return false;
+    clearInterval(watchdog);
+    if (on) {
+      openHandler = handler;
+      mode = "open";
+      watchdog = setInterval(() => {
+        if (mode !== "open") return;
+        if (isSpeaking()) { if (active) { try { rec.abort(); } catch (_) {} active = false; } return; }
+        if (!active) begin(true);
+      }, 400);
+    } else if (mode === "open") {
+      openHandler = null;
+      mode = "off";
+      if (rec) { try { rec.abort(); } catch (_) {} }
+      active = false;
+    }
+    return on;
+  }
+
+  return { supported, listening, handsFree, setHandlers, setSpeakingCheck, start, stop, setHandsFree, speechDone, setOpenMic, WAKE };
 })();

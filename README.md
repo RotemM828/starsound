@@ -1,6 +1,21 @@
 # StarSound
 
-Hear the night sky. StarSound lets blind and visually impaired people explore the stars by sound. Point a phone at the sky and every star in view plays a note:
+**Hear the night sky.** StarSound lets blind and visually impaired people explore the stars by sound and by voice. Point a phone at the sky, and every star in view plays a note. Ask out loud to find planets, hear what you're pointing at, take a guided tour, or learn the story behind a star.
+
+**Try it:** [rotemm828.github.io/starsound](https://rotemm828.github.io/starsound/). Open it on a phone, use headphones, and tap Start. On a computer, choose Practice: arrow keys aim, and Space talks.
+
+![StarSound screens: the spoken tutorial, the sky view while pointing at Saturn, and the Find list showing what's up now](screenshots.png)
+
+### Quick start
+1. Tap **Start, and point at the sky**, and allow motion, location, and microphone.
+2. A short spoken tutorial explains the sounds. Tap anywhere to go through it.
+3. Tap anywhere on the screen and ask: "What am I pointing at?", "Find Saturn", or "What's up tonight?"
+4. Hold still on something bright and StarSound names it. Then ask "Describe it" or "What's nearby?"
+5. Say "hands free on" to use it without touching the screen: start each question with "Hey Star."
+
+
+## How the sound works
+
 
 | Star property | Sound |
 |---|---|

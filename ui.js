@@ -39,24 +39,41 @@
     }));
 
   // ---------- Find list ----------
+  // Stars that never rise from the user's location are left out, and each item says
+  // whether it's up now (and where) or when it rises, with what's up now listed first.
   const items = [];
   const planetNotes = { Moon: "our Moon", Mercury: "planet", Venus: "planet", Mars: "planet", Jupiter: "planet", Saturn: "planet" };
-  for (const n of Object.keys(planetNotes)) items.push({ group: "Moon and planets", value: "object:p" + n, label: n === "Moon" ? "The Moon" : n, hint: planetNotes[n] });
+  for (const n of Object.keys(planetNotes)) items.push({ group: "Moon and planets", value: "object:p" + n, label: n === "Moon" ? "The Moon" : n, target: { type: "object", id: "p" + n }, note: planetNotes[n] });
   S.stars.forEach((s, i) => {
-    if (s.name && s.mag < 2.6) items.push({ group: "Bright stars", value: "object:s" + i, label: s.name, hint: s.con ? S.cons[s.con] : "" });
+    if (s.name && s.mag < 2.6) items.push({ group: "Bright stars", value: "object:s" + i, label: s.name, dec: s.dec, target: { type: "object", id: "s" + i }, note: s.con ? S.cons[s.con] : "" });
   });
-  for (const id of Object.keys(S.lines)) items.push({ group: "Constellations", value: "con:" + id, label: S.cons[id], hint: "" });
+  for (const id of Object.keys(S.lines)) items.push({ group: "Constellations", value: "con:" + id, label: S.cons[id], target: { type: "con", id }, note: "" });
   const order = { "Moon and planets": 0, "Bright stars": 1, Constellations: 2 };
-  items.sort((a, b) => order[a.group] - order[b.group] || (a.group === "Moon and planets" ? 0 : a.label.localeCompare(b.label)));
+
+  function status(it) {
+    const SS = window.StarSound;
+    if (!SS) return { up: false, text: "" };
+    const v = SS.targetVec(it.target);
+    const { alt, az } = Astro.enuToAltAz(v);
+    if (alt > 0) return { up: true, text: `Up now, ${Astro.compassWord(az)}` };
+    const rise = SS.nextRiseSet(it.target, "rise");
+    return { up: false, text: rise ? `Rises ${rise.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Not up today" };
+  }
 
   function renderFind(q) {
     const box = $("findList");
     box.textContent = "";
     const query = q.trim().toLowerCase();
-    const shown = items.filter((it) => !query || it.label.toLowerCase().includes(query) || it.hint.toLowerCase().includes(query));
+    const lat = window.StarSound ? StarSound.app.loc.lat : 34;
+    const shown = items
+      .filter((it) => it.dec === undefined || it.dec > lat - 90) // never rises here
+      .filter((it) => !query || it.label.toLowerCase().includes(query) || it.note.toLowerCase().includes(query))
+      .map((it) => ({ ...it, st: status(it) }))
+      .sort((a, b) => order[a.group] - order[b.group] || (b.st.up - a.st.up) ||
+        (a.group === "Moon and planets" ? 0 : a.label.localeCompare(b.label)));
     if (!shown.length) {
       const p = document.createElement("p"); p.className = "note";
-      p.textContent = "Nothing by that name in StarSound's sky. Try a planet, a bright star, or a constellation.";
+      p.textContent = "Nothing by that name in your sky. Try a planet, a bright star, or a constellation.";
       box.appendChild(p); return;
     }
     let group = null, list = null;
@@ -64,14 +81,16 @@
       if (it.group !== group) {
         group = it.group;
         const h = document.createElement("h3"); h.className = "group-title"; h.textContent = group;
-        list = document.createElement("div"); list.className = "list"; list.setAttribute("role", "list");
+        list = document.createElement("ul"); list.className = "list";
         box.append(h, list);
       }
+      const li = document.createElement("li");
       const b = document.createElement("button");
-      b.setAttribute("role", "listitem");
       const name = document.createElement("span"); name.textContent = it.label;
-      const hint = document.createElement("span"); hint.className = "hint"; hint.textContent = it.hint;
-      b.append(name, hint);
+      const hint = document.createElement("span"); hint.className = "hint" + (it.st.up ? " up" : "");
+      hint.textContent = it.st.text || it.note;
+      const pause = document.createElement("span"); pause.className = "visually-hidden"; pause.textContent = ". ";
+      b.append(name, pause, hint); // screen readers hear "Saturn. Up now, southeast"
       b.addEventListener("click", () => {
         const sel = $("target");
         let opt = [...sel.options].find((o) => o.value === it.value);
@@ -82,7 +101,8 @@
         if (window.StarSound && StarSound.app.mode === "find") $("findBtn").click(); // stop the previous search first
         $("findBtn").click();
       });
-      list.appendChild(b);
+      li.appendChild(b);
+      list.appendChild(li);
     }
   }
   $("findSearch").addEventListener("input", (e) => renderFind(e.target.value));

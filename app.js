@@ -1625,6 +1625,6 @@
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
 
-  window.StarSound = { app, rebuildSky, describe, skyTonight, whatsHere, playConstellation, runCommand, Log, renderJournal, nearby, describeTarget,
+  window.StarSound = { app, rebuildSky, describe, skyTonight, whatsHere, playConstellation, runCommand, Log, renderJournal, nearby, describeTarget, targetVec, nextRiseSet,
     startTour, nextStop, tellMore, findTarget, resolveRef }; // for testing
 })();

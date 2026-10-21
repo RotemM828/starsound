@@ -53,6 +53,8 @@
     hintsGiven: 0,          // the first few announcements teach follow-up questions
     followHints: 0,
     nearList: [],
+    tutorial: false,        // true while the tutorial is open: no star sounds or announcements
+    pendingNotes: [],
   };
 
   // ---------- saved settings (this phone only) ----------
@@ -419,7 +421,7 @@
     updateStatus(f);
     const talking = Voice.speaking();
     if (talking !== app.ducked) { app.ducked = talking; Sound.duck(talking); }
-    if (!app.running || app.paused || app.listening) return;
+    if (!app.running || app.paused || app.listening || app.tutorial) return;
 
     if (app.mode === "find") findStep(f, now);
     else if (!app.playingMelody) exploreStep(f, now);
@@ -526,7 +528,7 @@
     if (angle < foundAngle) { onFound(t); return; }
 
     if (now >= app.nextTick) {
-      Sound.tick(1 - angle / 180, dir);
+      Sound.tick(Math.max(0, 1 - angle / 90), dir);
       app.nextTick = now + Math.max(90, Math.min(1100, angle * 12));
     }
 
@@ -757,9 +759,9 @@
       case "settings": return settingsSummary();
       case "resetSettings": {
         el("focus").value = setFocus("normal"); setDetail("bright"); el("detail").value = "bright";
-        el("autoNames").checked = true; el("conNames").checked = true;
+        el("autoNames").checked = true; el("conNames").checked = true; el("cues").checked = Sound.setCues(true);
         el("volume").value = Sound.setVolume(0.8); el("rate").value = Voice.setRate(1);
-        Prefs.save({ focus: "normal", detail: "bright", autoNames: true, conNames: true, volume: 0.8, rate: 1 });
+        Prefs.save({ focus: "normal", detail: "bright", autoNames: true, conNames: true, volume: 0.8, rate: 1, cues: true });
         return Voice.say("Settings are back to normal.");
       }
       case "detail": {
@@ -813,7 +815,11 @@
       case "privacy": return Voice.say("StarSound has no account, no tracking and no ads. Your location and the phone's motion stay on this phone. " +
         "The microphone is only on while you talk, or in hands-free mode, and your phone's own speech service turns your words into text. " +
         "StarSound never records or stores your voice. Your observing log stays on this phone, and you can say clear my log to erase it.");
-      case "tutorial": return tutorial();
+      case "tutorial": return openTutorial();
+      case "cues": {
+        Sound.setCues(cmd.on); el("cues").checked = cmd.on; Prefs.save({ cues: cmd.on });
+        return Voice.say(cmd.on ? "Sound cues are on. Two soft rising notes mean I'm listening." : "Sound cues are off. After you tap, just start talking.");
+      }
       case "pause": return setPaused(true);
       case "resume": return setPaused(false);
       case "repeat": return Voice.repeat();
@@ -832,10 +838,8 @@
       case "timeNow": el("timeMode").value = "now"; app.timeMode = "now"; rebuildSky(); return Voice.say("Showing the sky right now.");
       case "timeTonight": el("timeMode").value = "tonight"; app.timeMode = "tonight"; rebuildSky(); return Voice.say("Showing the sky at 9 PM tonight.");
       case "findUnknown":
-        Sound.earcon("error");
         return Voice.say(`I don't know ${cmd.said || "that"} yet. Try a planet, a bright star, or a constellation, like Find Orion.`);
       default:
-        Sound.earcon("error");
         return Voice.say(cmd.heard ? `Sorry, I heard: ${cmd.heard}. Say help to hear what you can say.` : "I didn't catch that.");
     }
   }
@@ -879,7 +883,7 @@
       "aborted": null,
     };
     const msg = err in reasons ? reasons[err] : "Something went wrong with the microphone. Try again.";
-    if (msg) { Sound.earcon("error"); Voice.say(msg); }
+    if (msg) Voice.say(msg);
   }
 
   function settingsSummary() {
@@ -889,7 +893,7 @@
     const stars = { fewest: "only the brightest", bright: "bright stars", more: "many stars" }[el("detail").value];
     Voice.say(`Your settings. Star volume ${pct} percent. Speaking speed ${speed}. Listening circle ${el("focus").value}. ` +
       `Stars you hear: ${stars}. Naming stars as you point: ${el("autoNames").checked ? "on" : "off"}. ` +
-      `Naming constellations: ${el("conNames").checked ? "on" : "off"}. Hands-free: ${Listen.handsFree() ? "on" : "off"}. ` +
+      `Naming constellations: ${el("conNames").checked ? "on" : "off"}. Sound cues: ${el("cues").checked ? "on" : "off"}. Hands-free: ${Listen.handsFree() ? "on" : "off"}. ` +
       `To change one, say things like: fewer stars, wider, speak slower, or stop announcing.`);
   }
 
@@ -1400,7 +1404,7 @@
   // iPhones report how trustworthy the compass is; warn once if it's poor
   function compassCheck() {
     const acc = Sensors.state.accuracy;
-    if (!app.running || app.compassWarned || Sensors.state.mode !== "phone" || acc == null) return;
+    if (!app.running || app.tutorial || app.compassWarned || Sensors.state.mode !== "phone" || acc == null) return;
     if ((acc < 0 || acc > 25) && performance.now() - app.startedAt > 4000) {
       if (Voice.say("Your compass may be off. Wave the phone slowly in a figure eight a few times to calibrate it.", { auto: true })) app.compassWarned = true;
     }
@@ -1448,6 +1452,21 @@
     try { if ("wakeLock" in navigator) await navigator.wakeLock.request("screen"); } catch (_) {}
   }
 
+  // messages that arrive during the tutorial wait until it's finished
+  function notify(text) {
+    if (app.tutorial) app.pendingNotes.push(text);
+    else Voice.say(text, { interrupt: false });
+  }
+
+  function openTutorial() {
+    stopAll(false);
+    app.tutorial = true;
+    Tutorial.open(() => {
+      app.tutorial = false;
+      Voice.say("That's the tour. Point at the sky, and tap anywhere to ask a question.");
+    });
+  }
+
   async function start(practice, handsFreeStart = false) {
     Sound.init();
     Voice.unlock(); // iPhones only allow speech that starts inside a tap
@@ -1466,29 +1485,30 @@
     app.startedAt = performance.now();
     keepAwake();
     const prefs = Prefs.load();
-    const voiceHint = !Listen.supported() ? "" : practice ? "Press the space bar and say help, any time. " :
-      "To talk to me, tap anywhere on the screen, then speak. Say help to hear what you can ask. ";
-    if (!prefs.welcomed) {
-      Prefs.save({ welcomed: true });
-      Voice.say("Welcome to StarSound. " + (practice ? "This is practice mode: use the arrow keys or drag the sky to aim. " :
-        "Hold your phone up and point it at the sky. Use headphones for 3D sound. ") +
-        "Every star in front of you plays a note: brighter is louder, blue is higher, red is lower. " +
-        "Sweep slowly, and hold still on a star to hear its name. " + voiceHint +
-        "To hear this again, say how does this work.");
+    const wantHandsFree = handsFreeStart || prefs.handsFree;
+    const ready = () => {
+      app.tutorial = false;
+      const hint = !Listen.supported() ? "" : practice ? "Press the space bar to ask a question." : "Tap anywhere to ask a question.";
+      Voice.say((practice ? "Practice mode: use the arrow keys to aim. " : "Point your phone at the sky. ") + hint);
+      if (wantHandsFree) setTimeout(() => setHandsFree(true, { quiet: !handsFreeStart }), 400);
+      for (const n of app.pendingNotes.splice(0)) Voice.say(n, { interrupt: false });
+      setTimeout(() => el("talkBtn").focus(), 100);
+    };
+    if (!prefs.tutorialDone) {
+      // first time: a short spoken tour of the sounds and what you can ask
+      app.tutorial = true;
+      Tutorial.open(() => { Prefs.save({ tutorialDone: true, welcomed: true }); ready(); });
     } else {
-      Voice.say((practice ? "Practice mode. Arrow keys aim. " : "Point your phone at the sky. ") + voiceHint);
-    }
-    if (handsFreeStart || Prefs.load().handsFree) {
-      setTimeout(() => setHandsFree(true, { quiet: !handsFreeStart }), 600);
+      ready();
     }
     getLocation().then((gotLoc) => {
       if (gotLoc) rebuildSky();
-      else Voice.say("I couldn't get your location, so I'm using the sky over Westlake Village.", { interrupt: false });
+      else notify("I couldn't get your location, so I'm using the sky over Westlake Village.");
     });
     if (!practice) {
       setTimeout(() => {
         if (!Sensors.receiving()) {
-          Voice.say("I am not getting motion data from this device, so I switched to practice mode.");
+          notify("I'm not getting motion data from this device, so I switched to practice mode. Use the arrow keys to aim.");
           Sensors.startSimulation();
         }
       }, 2500);
@@ -1511,7 +1531,8 @@
     el("nextBtn").onclick = nextStop;
     el("moreBtn").onclick = () => tellMore();
     el("helpBtn").onclick = () => Voice.say(Commands.HELP);
-    el("tutorialBtn").onclick = tutorial;
+    el("tutorialBtn").onclick = openTutorial;
+    el("cues").onchange = (e) => { Sound.setCues(e.target.checked); Prefs.save({ cues: e.target.checked }); };
     el("stopBtn").onclick = () => stopAll();
     el("srMode").onchange = (e) => { Voice.setScreenReader(e.target.checked); Prefs.save({ sr: e.target.checked }); };
     el("conNames").onchange = (e) => Prefs.save({ conNames: e.target.checked });
@@ -1536,7 +1557,6 @@
         const cmd = Commands.parseAlternatives(alts);
         // in the hands-free follow-up window, ignore speech that isn't a command (people chatting nearby)
         if (!info.wake && ["unknown", "none", "findUnknown"].includes(cmd.action)) return;
-        Sound.earcon("done");
         runCommand(cmd);
       },
       onFollowUp: () => Sound.earcon("ready"),
@@ -1559,7 +1579,7 @@
 
     // practice mode: keyboard and drag
     window.addEventListener("keydown", (e) => {
-      if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+      if (app.tutorial || e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
       const step = e.shiftKey ? 10 : 3;
       const keys = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
       if (keys[e.key] && Sensors.state.mode === "simulate") { e.preventDefault(); Sensors.nudge(...keys[e.key]); }
@@ -1568,7 +1588,7 @@
       if (e.key === "t") skyTonight();
       if (e.key === "m") tellMore();
       if (e.key === "n") nextStop();
-      if (e.key === " " && app.running) { e.preventDefault(); talk(); }
+      if (e.key === " " && app.running && !app.tutorial) { e.preventDefault(); talk(); }
     });
     let drag = null;
     canvas.addEventListener("pointerdown", (e) => { drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
@@ -1587,6 +1607,7 @@
     if (typeof p.decl === "number") { Sensors.state.declination = p.decl; el("decl").value = p.decl; }
     if (typeof p.conNames === "boolean") el("conNames").checked = p.conNames;
     if (typeof p.autoNames === "boolean") el("autoNames").checked = p.autoNames;
+    if (typeof p.cues === "boolean") { el("cues").checked = p.cues; Sound.setCues(p.cues); }
     if (p.focus) el("focus").value = setFocus(p.focus);
     if (p.detail) { setDetail(p.detail); el("detail").value = p.detail; }
     if (p.sr) { el("srMode").checked = true; Voice.setScreenReader(true); }

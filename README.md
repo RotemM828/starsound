@@ -24,6 +24,23 @@ Hold still on a star or planet and the app says its name, color, and distance. S
 - **Accessible:** large buttons; works with VoiceOver and TalkBack (switch in Settings); adjustable speaking speed and volume, which the phone remembers; sound cues for listening, done, and not understood; vibration on Android.
 - **Works offline:** after the first visit, the app is saved on the phone (except voice commands, which need internet on most phones). It can be added to the home screen like an app.
 
+### First launch: a spoken tutorial
+
+The first time StarSound starts, a short tour (about two minutes, skippable) explains everything out loud, one step at a time, with a large card on screen. Each step plays a live example of the sound it describes: a bright and a faint star, a blue and a red star, a star on the left and the right, a planet and the Moon, the finding ping, and the listening cue. Tap anywhere to go to the next step. Say "tutorial" any time to hear it again.
+
+### Sounds and what they mean
+
+| Sound | Meaning |
+|---|---|
+| Soft bells | Stars. Louder = brighter, higher = bluer and hotter, lower = redder and cooler. They come from each star's direction. |
+| A different, rounder tone | A planet or the Moon |
+| Soft pings that speed up and rise | Find mode: you're getting closer. They come from the target's direction. |
+| Two warm rising notes | Found it |
+| Two soft rising notes | I'm listening, so ask your question (can be turned off: "turn off sound cues") |
+| One quiet low note | Hands-free only: you can reply now without saying "Hey Star" |
+
+Everything else is spoken, so there are no unexplained beeps.
+
 ### Eyes-free use
 
 A blind user is holding the phone up at the sky, so nothing requires finding a button:

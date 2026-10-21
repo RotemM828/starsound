@@ -204,6 +204,38 @@
       background: rgba(7,11,31,0.5); font-size: 14px; font-weight: 600;
     }
     .journal-night { margin: 0 0 6px; font-size: 17px; line-height: 1.45; }
+
+    /* ---------- tutorial ---------- */
+    dialog.tutorial {
+      width: 100vw; max-width: 100vw; height: 100vh; height: 100dvh; max-height: none; margin: 0; border: 0; border-radius: 0;
+      background: radial-gradient(120% 70% at 50% 0%, #17204F 0%, var(--night) 62%);
+      display: flex; flex-direction: column; padding: max(18px, env(safe-area-inset-top)) 22px max(22px, env(safe-area-inset-bottom));
+      cursor: pointer;
+    }
+    dialog.tutorial:not([open]) { display: none; }
+    dialog.tutorial::backdrop { background: var(--night); }
+    .tut-top { display: flex; justify-content: space-between; align-items: center; max-width: 560px; width: 100%; margin: 0 auto; }
+    .tut-step { color: var(--mist); font-size: 15px; font-weight: 600; }
+    .tut-skip { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font-weight: 600; }
+    .tut-body { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 560px; width: 100%; margin: 0 auto; }
+    .tut-body h2 { font-size: clamp(32px, 9vw, 46px); line-height: 1.05; letter-spacing: -0.03em; font-weight: 800; margin: 0 0 18px; }
+    .tut-body p { font-size: clamp(19px, 5vw, 22px); line-height: 1.5; margin: 0; color: var(--cream); max-width: 34ch; }
+    .tut-replay {
+      align-self: flex-start; margin-top: 26px; min-height: 52px; padding: 0 20px; border-radius: 999px;
+      border: 1px solid rgba(156,201,255,0.45); background: rgba(156,201,255,0.10); font-weight: 600;
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .tut-replay svg { width: 22px; height: 22px; color: var(--starlight); }
+    .tut-bottom { max-width: 560px; width: 100%; margin: 0 auto; }
+    .tut-dots { display: flex; gap: 6px; margin-bottom: 16px; }
+    .tut-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(243,230,207,0.22); }
+    .tut-dots span.on { background: var(--ember); width: 22px; border-radius: 4px; }
+    .tut-nav { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+    .tut-back, .tut-next { min-height: 60px; border-radius: 999px; font-weight: 800; font-size: 18px; }
+    .tut-back { border: 1px solid var(--line); background: transparent; }
+    .tut-back:disabled { opacity: 0.35; }
+    .tut-next { border: 0; background: var(--cream); color: var(--night); }
+    .tut-hint { text-align: center; color: var(--mist); font-size: 14px; margin: 12px 0 0; }
     .privacy p { margin: 0 0 14px; color: var(--mist); max-width: 60ch; }
     .privacy strong { color: var(--cream); }
 
@@ -322,6 +354,30 @@
     </div>
   </dialog>
 
+  <!-- Tutorial: a spoken, tap-through tour (tutorial.js) -->
+  <dialog id="tutorial" class="tutorial" aria-labelledby="tutTitle" aria-describedby="tutText">
+    <div class="tut-top">
+      <span id="tutStep" class="tut-step"></span>
+      <button id="tutSkip" class="tut-skip">Skip</button>
+    </div>
+    <div class="tut-body">
+      <h2 id="tutTitle"></h2>
+      <p id="tutText"></p>
+      <button id="tutReplay" class="tut-replay">
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        Play the sound again
+      </button>
+    </div>
+    <div class="tut-bottom">
+      <div id="tutDots" class="tut-dots" aria-hidden="true"></div>
+      <div class="tut-nav">
+        <button id="tutBack" class="tut-back">Back</button>
+        <button id="tutNext" class="tut-next">Next</button>
+      </div>
+      <p class="tut-hint">Tap anywhere for the next step</p>
+    </div>
+  </dialog>
+
   <!-- Journal -->
   <dialog id="journalSheet" aria-labelledby="journalTitle">
     <div class="sheet-head"><h2 id="journalTitle">Sky journal</h2><button class="icon-btn" data-close aria-label="Close"><span aria-hidden="true">✕</span></button></div>
@@ -354,6 +410,7 @@
       <div class="setting"><label for="detail">Stars you hear<span class="hint">Fewer stars sound calmer</span></label>
         <select id="detail"><option value="fewest">Brightest only</option><option value="bright" selected>Bright</option><option value="more">Many</option></select></div>
       <div class="setting"><label for="below">Include stars below the horizon</label><input type="checkbox" id="below"></div>
+      <div class="setting"><label for="cues">Sound cues<span class="hint">Two soft rising notes when I'm listening</span></label><input type="checkbox" id="cues" checked></div>
       <div class="setting"><label for="volume">Star volume</label><input type="range" id="volume" min="0" max="1.5" step="0.05" value="0.8"></div>
       <div class="setting"><label for="rate">Speaking speed</label><input type="range" id="rate" min="0.6" max="1.8" step="0.05" value="1"></div>
       <div class="setting"><label for="timeMode">Sky time</label>
@@ -374,6 +431,7 @@
 <script src="commands.js"></script>
 <script src="listen.js"></script>
 <script src="app.js"></script>
+<script src="tutorial.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>

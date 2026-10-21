@@ -69,12 +69,13 @@ const Sound = (() => {
     const t = ctx.currentTime;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain * 0.5), t + 0.012);
+    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain * 0.5), t + (kind === "cue" ? 0.04 : 0.025));
     env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     env.connect(makePanner(viewPos)).connect(master);
 
     const partials = kind === "moon" ? [[1, "sine", 1], [1.5, "sine", 0.6], [2, "sine", 0.3]]
       : kind === "planet" ? [[1, "triangle", 1], [3, "sine", 0.15]]
+      : kind === "cue" ? [[1, "sine", 1]]
       : [[1, "sine", 1], [2, "sine", 0.12]];
     for (const [mult, type, amp] of partials) {
       const o = ctx.createOscillator(), g = ctx.createGain();
@@ -85,27 +86,36 @@ const Sound = (() => {
   }
 
   // A short tick used by Find mode; pitch rises as you get closer to the target.
+  // Find mode: a soft sonar ping from the target's direction; higher and faster as you get closer
   function tick(closeness, viewPos) {
     if (!ctx) return;
-    ping(viewPos || [0, 0, 1], 300 + 900 * closeness, 0.35, "planet", 0.12);
+    ping(viewPos || [0, 0, 1], 392 + 392 * closeness, 0.32, "cue", 0.28);
   }
 
   // A two-note chime for "found it" / "locked on"
+  // Found it: two warm notes going up
   function chime() {
     if (!ctx) return;
-    ping([0, 0, 1], 784, 0.5, "star", 0.5);
-    setTimeout(() => ping([0, 0, 1], 1175, 0.5, "star", 0.7), 140);
+    ping([0, 0, 1], 659, 0.4, "cue", 0.6);
+    setTimeout(() => ping([0, 0, 1], 988, 0.4, "cue", 0.9), 160);
   }
 
   // Short sound cues ("earcons") so a blind user knows what the app is doing:
   //   listen = rising notes (start talking), done = falling notes (stopped listening),
   //   error = low double buzz (didn't understand).
+  // Only two interface cues, each with one meaning (the voice explains everything else):
+  //   listen: a soft rising pair of notes = "I'm listening, speak now"
+  //   ready:  one quiet low note = hands-free: "you can reply without saying Hey Star"
+  let cuesOn = true;
+  function setCues(on) { cuesOn = !!on; return cuesOn; }
   function earcon(type) {
-    if (!ctx) return;
-    const seq = { listen: [523, 784], done: [784, 523], error: [196, 196], ready: [1047] }[type];
-    if (!seq) return;
-    const gain = type === "ready" ? 0.18 : 0.45; // "ready" is a soft cue: you can reply now
-    seq.forEach((f, i) => setTimeout(() => ping([0, 0, 1], f, gain, type === "error" ? "planet" : "star", 0.18), i * 120));
+    if (!ctx || !cuesOn) return;
+    if (type === "listen") {
+      ping([0, 0, 1], 523, 0.26, "cue", 0.35);
+      setTimeout(() => ping([0, 0, 1], 784, 0.26, "cue", 0.45), 110);
+    } else if (type === "ready") {
+      ping([0, 0, 1], 392, 0.14, "cue", 0.4);
+    }
   }
 
   let volume = 0.8;
@@ -131,7 +141,7 @@ const Sound = (() => {
     try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (_) {}
   }
 
-  return { init, ping, tick, chime, earcon, buzz, duck, pitchFromColor, loudnessFromMagnitude, setVolume, getVolume };
+  return { init, ping, tick, chime, earcon, setCues, buzz, duck, pitchFromColor, loudnessFromMagnitude, setVolume, getVolume };
 })();
 
 // Speech: the app's own voice (text-to-speech), or the user's screen reader.

@@ -235,6 +235,9 @@ const Commands = (() => {
       "what else is here", "what else is near", "nearby", "near it", "around it", "neighbors", "whats close to it"])) return r("nearby");
     if (has(t, ["brightest", "the brightest thing", "brightest star", "brightest planet", "brightest object"]) && !has(t, ["only", "fewer", "just the"])) return r("brightest");
     // settings by voice, so nobody has to find a menu
+    if (has(t, ["sound cues", "beeps", "beeping", "beep", "the chimes", "cue sounds", "listening sound"])) {
+      return r("cues", { on: !has(t, ["off", "stop", "no", "dont", "disable", "turn off", "mute", "annoying"]) });
+    }
     if (has(t, ["reset settings", "default settings", "reset my settings", "restore defaults"])) return r("resetSettings");
     if (has(t, ["what are my settings", "my settings", "read my settings", "current settings", "settings"])) return r("settings");
     if (has(t, ["fewer stars", "less stars", "only bright stars", "only the brightest", "brightest only"])) return r("detail", { dir: "fewer" });

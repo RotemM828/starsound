@@ -1,0 +1,165 @@
+# StarSound
+
+**Hear the night sky.** StarSound lets blind and visually impaired people explore the stars by sound and by voice. Point a phone at the sky, and every star in view plays a note. Ask out loud to find planets, hear what you're pointing at, take a guided tour, or learn the story behind a star.
+
+**Try it:** [rotemm828.github.io/starsound](https://rotemm828.github.io/starsound/). StarSound is made for a phone with headphones: open the link and tap Start. **Judges on a computer:** choose "On a computer? Practice with the arrow keys." The arrow keys aim, and the space bar asks a question.
+
+![StarSound screens: the spoken tutorial, the sky view while pointing at Saturn, the Find list showing what is up now, and the Menu](screenshots.png)
+
+### Quick start
+1. Tap **Start, and point at the sky**. Allow motion, location, and microphone when asked.
+2. A short spoken tutorial explains the sounds and what to ask. Say "next", or tap anywhere, to go on.
+3. StarSound says whether it's using your location, then asks: *"Would you like hands-free mode?"* Say yes or no.
+4. Point the phone at the sky. To ask something, **tap anywhere on the screen** (with VoiceOver, double-tap anywhere), wait for two soft notes, and ask: "What am I pointing at?", "Find Saturn", or "What's up tonight?" In hands-free mode, just say "Hey Star" first.
+5. Hold still on something bright and StarSound names it. Then ask "Describe it" or "What's nearby?"
+6. Say "show menu" (or tap Menu) to see every button, including Settings. You can also say "open settings."
+
+## How the sound works
+
+
+| Star property | Sound |
+|---|---|
+| Brightness (magnitude) | Loudness: brighter stars are louder |
+| Color (B−V index) | Pitch: hot blue stars are high, cool red stars are low (pentatonic scale) |
+| Position in view | 3D direction through headphones (HRTF spatial audio) |
+| Closeness to where you aim | Twinkle rate: faster near the center |
+| Moon and planets | Their own instrument sounds |
+
+Hold still on a star or planet and the app says its name, color, and distance. StarSound calculates where everything is, so it works through clouds and even in daytime.
+
+## Features
+
+- **Voice control:** the whole screen is the Talk button, so tap anywhere (or double-tap anywhere with VoiceOver, or press Space on a computer) and speak. It uses the browser's built-in speech recognition, so it needs no accounts or keys.
+- **Explore:** sweep the sky and hear it; hold still to hear names; constellation names are spoken as you pass through them.
+- **Find:** "Find Jupiter", "Find the Big Dipper", "Which way is north". A soft ping comes *from the direction of the target* and speeds up as you get closer, with spoken hints ("Turn left 20 degrees, and raise the phone 10 degrees.").
+- **Guided tour:** "Take me on a tour" picks up to 6 highlights currently above the horizon (Moon, planets, a bright star, constellations), leads you to each one, and tells its story. Say "Next" to move on.
+- **Stories:** "Tell me more" or "Tell me about Vega" reads a short story about stars, planets, the Moon, and 28 constellations.
+- **Play this constellation:** hear a constellation's shape as a melody traced along its lines.
+- **What's up tonight:** a spoken summary of planets, bright stars, and the Moon phase.
+- **Accessible:** works with VoiceOver and TalkBack (the first thing they reach is the full-screen "Talk to StarSound" button); every setting can be changed by voice; adjustable speaking speed and volume, which the phone remembers; vibration on Android. Star sounds keep playing even when an iPhone is set to silent.
+- **A clean screen:** the sky fills the screen, with only a short caption and four shortcuts (What's here?, Tonight, Find, Menu). Every other button lives in the Menu, which hides itself after you pick something.
+- **Red night mode:** dim red colors that keep a sighted companion's eyes adjusted to the dark, the way astronomers use red flashlights. Say "night mode on".
+- **Works offline:** after the first visit, the app is saved on the phone (except voice commands, which need internet on most phones). It can be added to the home screen like an app.
+
+### First launch: a spoken tutorial
+
+The first time StarSound starts, a short tour (about two minutes, skippable) explains everything out loud, one step at a time, with a large card on screen. Each step plays a live example of the sound it describes: a bright and a faint star, a blue and a red star, a star on the left and the right, a planet and the Moon, the finding ping, and the listening cue. Tap anywhere, or just say "next", to go to the next step ("back", "repeat" and "skip" work too). Say "tutorial" any time to hear it again.
+
+### Sounds and what they mean
+
+| Sound | Meaning |
+|---|---|
+| Soft bells | Stars. Louder = brighter, higher = bluer and hotter, lower = redder and cooler. They come from each star's direction. |
+| A different, rounder tone | A planet or the Moon |
+| Soft pings that speed up and rise | Find mode: you're getting closer. They come from the target's direction. |
+| Two warm rising notes | Found it |
+| Two soft rising notes | I'm listening, so ask your question (can be turned off: "turn off sound cues") |
+| One quiet low note | Hands-free only: you can reply now without saying "Hey Star" |
+
+Everything else is spoken, so there are no unexplained beeps.
+
+### Understanding natural speech
+
+People don't speak in commands, so StarSound understands requests in two layers:
+
+1. **Patterns** for hundreds of common phrasings. Filler and polite words are removed first ("um, could you please find Mars for me" becomes "find Mars"), so they don't get in the way. Star names that phones often mishear are corrected ("serious" becomes Sirius, "beetlejuice" becomes Betelgeuse), and close misspellings are matched by edit distance.
+2. **Understanding by meaning** when no pattern fits. Each kind of request has clue words with weights ("far" and "miles" mean distance; "staring" and "aiming" mean "what's here"). StarSound adds up the clues, checks whether a star or planet was named (or "it"), and picks the most likely request. If it isn't sure, it says what it heard and suggests questions, instead of doing the wrong thing.
+
+In testing, StarSound understood 85% of sentences it had never seen before on the first try, before those sentences were used to improve it. Every phrase in the test sets (331 in total) is now understood.
+
+### Eyes-free use
+
+A blind user is holding the phone up at the sky, so nothing requires finding a button:
+
+- **Tap anywhere** on the screen to talk. The whole screen is one large "Talk to StarSound" button, so VoiceOver users can double-tap anywhere, and focus always returns to it after a menu closes.
+- **Hands-free mode** (offered by voice after the tutorial, or say "hands free on" any time): the microphone stays on, and commands start with the wake phrase **"Hey Star"**, as in "Hey Star, is Saturn up?" Saying just "Hey Star" arms it for the next sentence. Ordinary conversation is ignored, and the microphone pauses while the app is speaking. This also works with the phone strapped to a headband, so the app follows your head.
+- **Conversation flow:** hold still on something and StarSound says "You're on Saturn, a planet." Then just ask "describe it", "what's nearby", or "how far is it". In hands-free mode, a soft chime after each answer means you can reply for a few seconds without saying "Hey Star". People chatting nearby are ignored.
+- **A calm, focused listening circle:** about 22 degrees across (adjustable: narrow, normal, wide), up to 5 stars at once, and only stars you could realistically see from a suburb. Names are announced only when you hold still, and only for the Moon, planets, and the brightest stars.
+- **Spoken start-up:** the tutorial, one sentence about location, the hands-free question, and "Good, you're pointing at the sky" the first time the phone points up. A blind user never has to find anything on screen.
+
+### What you can say
+
+| Ask | Answer |
+|---|---|
+| What am I pointing at? / What am I facing? | Constellation and nearest bright object |
+| What's up tonight? / What planets can I see? | Planets, bright stars, Moon phase |
+| Find Jupiter / Find the Big Dipper / Which way is north? | Guides you there by sound |
+| Take me on a tour, then Next | Guided tour of tonight's highlights |
+| Is Saturn up? / Can I see the Moon tonight? | Yes or no, where it is, and when it sets or rises |
+| When does the Moon rise? / When does Orion set? / When is sunset? | Exact times for your location |
+| What's the moon phase? / When is the next full moon? | Phase, percent lit, moonrise or moonset, next full or new moon |
+| When does it get dark? | Sunset, when bright stars appear, when it's fully dark |
+| How far is Mars? / How far is Vega? | Live distance and light travel time |
+| When's the next meteor shower? | Next shower, date, and where to listen |
+| What have I seen this month? / Have I seen Saturn? | Your observing log (tonight, this week, month, year, or ever) |
+| Why do stars twinkle? / What is a light-year? / What's a black hole? | Answers to about 25 common astronomy questions, offline |
+| Describe it / What color is it? / How hot is it? | Full description of what you're on: color, temperature, brightness, distance, story |
+| What's nearby? / What's around it? | The closest bright objects, and which way they are from it |
+| How far is it? / When does it set? / Is it up? / Take me there | Follow-ups: "it" means whatever you're on or just asked about |
+| What's the brightest thing in the sky? | Brightest object and brightest star up right now |
+| Narrower / Wider | Change how much of the sky you hear at once |
+| What are my settings? / Reset settings | Hear every setting read aloud, or go back to normal |
+| Fewer stars / More stars | Brightest only, bright, or many stars |
+| Stop announcing / Start announcing | Turn off or on "You're on Vega" when you hold still |
+| Stop naming constellations / Name constellations | Turn constellation names off or on |
+| What did I see last night? | Your sky journal, by night |
+| Tell me more / Tell me about Vega / Why is Mars red? | Stories |
+| Play this constellation | Constellation melody |
+| Pause, Resume, Louder, Quieter, Speak slower/faster, Repeat, Help, Stop | Controls |
+
+Every planet, bright star, and constellation you find is saved automatically to an observing log on the phone. Nothing is sent anywhere.
+
+## Running it
+
+It's plain HTML and JavaScript with no build step and no accounts needed.
+
+- **On a computer:** open `index.html` in Chrome or Safari and choose Practice mode. Aim with the arrow keys (Shift for bigger steps) or by dragging the sky. Keys: Space = talk, `h` = what am I pointing at, `c` = play constellation, `t` = what's up tonight, `m` = tell me more, `n` = next tour stop. (Voice commands and offline mode need the app hosted online, below.)
+- **On a phone:** motion sensors and location need HTTPS, so host it on GitHub Pages:
+  1. Create a GitHub repository named `starsound`.
+  2. Choose **Add file → Upload files** and drag in all the files in this folder.
+  3. Go to **Settings → Pages**, set the source to **Deploy from a branch**, branch `main`, folder `/ (root)`, and save.
+  4. After a minute, open `https://<your-username>.github.io/starsound/` on your phone. Use headphones.
+
+## How it works
+
+- `astro.js` — the sky math. It converts each star's catalog position (right ascension and declination) into altitude and azimuth for your location and time, using local sidereal time and the hour angle. Everything is represented as 3D unit vectors (East, North, Up), so angles between things are dot products. It also includes the reverse conversion and a ray-casting test against the official IAU constellation boundaries to tell which constellation you're aiming at.
+- `sensors.js` — turns the phone's orientation angles (alpha, beta, gamma) into the direction the back camera points, using the rotation matrix from the W3C DeviceOrientation spec. It smooths the vector rather than the angles (angles jump at 0°/360°), corrects for magnetic declination, handles iPhone's relative compass, and supports calibrating on the Moon or a planet.
+- `audio.js` — the sonification, built on the Web Audio API with HRTF spatial panning, plus speech output.
+- `commands.js` — turns what the user said into an action. It handles nicknames ("Big Dipper"), common mishearings ("serious" → Sirius, "beetlejuice" → Betelgeuse), and close misspellings using edit distance. It tries each of the recognizer's guesses until one makes sense.
+- `listen.js` — voice input through the browser's speech recognition: tap-to-talk, and hands-free listening with the "Hey Star" wake phrase, which pauses while the app speaks.
+- `stories.js` — the spoken stories. Easy to add more.
+- `faq.js` — answers to common astronomy questions. Easy to add more.
+- `sw.js` and `manifest.webmanifest` — offline support and installing to the home screen.
+- `app.js` — the main loop, Explore and Find modes, constellation melodies, and the simple sky view for sighted companions.
+- `sky-data.js` — 1,044 naked-eye stars, constellation lines, and constellation boundaries, generated from the sources below.
+
+The star-position math was checked against the astronomy-engine library and matches within 0.002°. Star positions use J2000 catalog coordinates; precession since 2000 shifts them by about 0.4°, far smaller than phone compass error.
+
+## Security and privacy
+
+StarSound was designed to collect as little as possible and to keep what it uses on the user's own phone.
+
+- **No accounts, no server, no analytics, no ads.** The app is static files on GitHub Pages, served over HTTPS. There is nothing to log into and no database to breach.
+- **Location and motion sensors are used on the device only** to calculate the sky. They are never sent anywhere. The app asks for each permission only when the user taps Start.
+- **Microphone:** on only while the user is talking, during the tutorial (to hear "next"), or while hands-free mode is on. The browser's built-in speech service (Google in Chrome, Apple in Safari) turns speech into text; StarSound never records or stores audio. Every voice command also has a button.
+- **Observing log and settings** are stored only in the phone's local storage. Users can erase the log from the Privacy page or by saying "clear my log" (with a confirmation step).
+- **No third-party code at runtime.** The astronomy library and the font ship inside the app (pinned versions), so the page never loads scripts from other websites. A Content Security Policy blocks scripts, fonts, and connections from anywhere except the app's own site, and the offline cache stores only the app's own files.
+- **Safe handling of text:** everything the user says is displayed as plain text, never inserted as HTML, so spoken or typed input can't inject code.
+- **A Privacy page inside the app** explains all of this in plain language, and users can ask "Is my data private?" by voice.
+
+## What's next (StarSound 2.0)
+
+- **Spanish:** Ventura County has a large Spanish-speaking community. Phones already support Spanish speech; the work is translating every answer and teaching the command understanding Spanish phrasing, with native-speaker review.
+- **Calibrating without sight:** a backup way for a blind user to correct the compass alone, for example by facing the warmth of the Sun.
+- **StarSound Ear:** a small clip-on motion sensor, so the sky follows your head and you don't need to hold a phone at all.
+
+## Credits and licenses
+
+- Star data: [HYG Database](https://github.com/astronexus/HYG-Database) by David Nash (astronexus), CC BY-SA 4.0.
+- Constellation lines and boundaries: [d3-celestial](https://github.com/ofrohn/d3-celestial) by Olaf Frohn, BSD-3-Clause.
+- Moon and planet positions: [astronomy-engine](https://github.com/cosinekitty/astronomy) by Don Cross, MIT license.
+- Font: [Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next), designed with the Braille Institute for low-vision readers, SIL Open Font License (see `font-license.txt`).
+
+## AI use disclosure
+
+<!-- Fill this in honestly before you submit. The Congressional App Challenge requires full disclosure of AI use. -->

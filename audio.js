@@ -12,7 +12,20 @@
 const Sound = (() => {
   let ctx = null, master = null;
 
+  // iPhones mute web sound effects when the ring/silent switch is on, but a blind user
+  // must always hear the stars. Ask Safari to treat StarSound like a music app, and on
+  // older iPhones play a silent sound in a loop, which has the same effect.
+  let silentLoop = null;
+  function keepAudibleInSilentMode() {
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (_) {}
+    try {
+      if (!silentLoop) { silentLoop = new Audio("silence.wav"); silentLoop.loop = true; silentLoop.setAttribute("playsinline", ""); }
+      const p = silentLoop.play(); if (p && p.catch) p.catch(() => {});
+    } catch (_) {}
+  }
+
   function init() {
+    keepAudibleInSilentMode();
     if (ctx) { ctx.resume(); return; }
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     const comp = ctx.createDynamicsCompressor();

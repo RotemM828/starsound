@@ -421,7 +421,7 @@
     updateStatus(f);
     const talking = Voice.speaking();
     if (talking !== app.ducked) { app.ducked = talking; Sound.duck(talking); }
-    if (!app.running || app.paused || app.listening || app.tutorial) return;
+    if (!app.running || app.paused || app.listening || app.tutorial || app.askingHF) return;
 
     if (app.mode === "find") findStep(f, now);
     else if (!app.playingMelody) exploreStep(f, now);
@@ -605,11 +605,11 @@
     const tv = targetVec();
     let intro;
     if (target.type === "dir") {
-      intro = `Finding ${target.label}. Follow the ticking; it gets faster as you get closer.`;
+      intro = `Finding ${target.label}. Follow the pings. They get faster as you get closer.`;
     } else {
       const where = whereWords({ vec: tv });
       intro = `Finding ${target.label}. It's ${where}, ${relativeWords(Sensors.state.vec, tv)}.`;
-      intro += quiet ? "" : " Follow the ticking. It gets faster as you get closer.";
+      intro += quiet ? "" : " Follow the pings. They get faster as you get closer.";
     }
     Voice.say(intro);
     app.nextHint = performance.now() + 6000;
@@ -753,6 +753,12 @@
       return;
     }
     switch (a) {
+      case "location":
+        return Voice.say(app.loc.label === "your location" ? "Using your current location." : locationProblem());
+      case "menu":
+        if (cmd.on) { StarSoundUI.openMenu(); return Voice.say("Menu open."); }
+        StarSoundUI.closeAll(); return Voice.say("Menu closed.");
+      case "night": return setNight(cmd.on, true);
       case "here": return whatsHere();
       case "nearby": {
         if (cmd.ref) { // "what's near Saturn": make Saturn the topic first
@@ -785,11 +791,7 @@
         el("conNames").checked = cmd.on; Prefs.save({ conNames: cmd.on });
         return Voice.say(cmd.on ? "I'll name constellations as you sweep." : "I'll stop naming constellations.");
       case "screenReader":
-        el("srMode").checked = cmd.on; Prefs.save({ sr: cmd.on });
-        if (!cmd.on) Voice.setScreenReader(false);
-        Voice.say(cmd.on ? "Switching to your screen reader." : "Using StarSound's own voice.");
-        if (cmd.on) setTimeout(() => Voice.setScreenReader(true), 2500);
-        return;
+        return Voice.say("StarSound always speaks with its own voice, and VoiceOver or TalkBack still reads the buttons. To talk, double-tap anywhere.");
       case "focus": {
         const order = ["narrow", "normal", "wide"];
         const cur = el("focus").value;
@@ -844,7 +846,8 @@
       case "timeNow": el("timeMode").value = "now"; app.timeMode = "now"; rebuildSky(); return Voice.say("Showing the sky right now.");
       case "timeTonight": el("timeMode").value = "tonight"; app.timeMode = "tonight"; rebuildSky(); return Voice.say("Showing the sky at 9 PM tonight.");
       case "findUnknown":
-        return Voice.say(`I don't know ${cmd.said || "that"} yet. Try a planet, a bright star, or a constellation, like Find Orion.`);
+        return Voice.say(cmd.said ? `I don't know ${cmd.said} yet. Try a planet, a bright star, or a constellation, like, find Orion.`
+          : "Find what? Tap again and say a name, like, find Saturn.");
       default:
         return Voice.say(cmd.heard ? `Sorry, I heard: ${cmd.heard}, and I'm not sure what you mean. Try: what am I pointing at, find Saturn, or what's up tonight. Or say help.` : "I didn't catch that. Tap and try again.");
     }
@@ -852,6 +855,7 @@
 
   function talk() {
     if (!app.running) return;
+    if (app.askingHF && app.answerHF) { app.answerHF(false); return; }
     if (!Listen.supported()) {
       Voice.say("Voice commands aren't supported in this browser. Try Chrome on Android, or Safari on iPhone. All the buttons still work.");
       return;
@@ -870,14 +874,14 @@
   function onListenState(state, err) {
     if (state === "start") {
       app.listening = true;
-      el("talkBtn").textContent = "Listening… tap to stop";
+      el("talkBtn").textContent = "Listening. Tap to stop.";
       el("talkBtn").setAttribute("aria-pressed", "true");
       Sound.earcon("listen");
       return;
     }
     if (state === "unsupported") return;
     app.listening = false;
-    el("talkBtn").textContent = "Tap to talk";
+    el("talkBtn").textContent = "Talk to StarSound";
     el("talkBtn").setAttribute("aria-pressed", "false");
     if (state === "end" && !err) return;
     const reasons = {
@@ -885,11 +889,22 @@
       "service-not-allowed": "Voice commands aren't available here. On iPhone, make sure Siri and dictation are turned on.",
       "network": "Voice commands need an internet connection. Everything else still works offline.",
       "audio-capture": "I couldn't find a microphone.",
-      "no-speech": "I didn't hear anything. Tap Talk and try again.",
+      "no-speech": "I didn't hear anything. Tap again, wait for the two soft notes, then speak.",
       "aborted": null,
     };
     const msg = err in reasons ? reasons[err] : "Something went wrong with the microphone. Try again.";
     if (msg) Voice.say(msg);
+  }
+
+  // Red night mode: dim red colors keep a sighted helper's eyes adjusted to the dark.
+  function setNight(on, speak = false) {
+    app.night = !!on;
+    document.documentElement.classList.toggle("night", app.night);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = app.night ? "#070202" : "#070B1F";
+    el("nightMode").checked = app.night;
+    Prefs.save({ night: app.night });
+    if (speak) Voice.say(app.night ? "Red night mode is on." : "Red night mode is off.");
   }
 
   function settingsSummary() {
@@ -899,7 +914,7 @@
     const stars = { fewest: "only the brightest", bright: "bright stars", more: "many stars" }[el("detail").value];
     Voice.say(`Your settings. Star volume ${pct} percent. Speaking speed ${speed}. Listening circle ${el("focus").value}. ` +
       `Stars you hear: ${stars}. Naming stars as you point: ${el("autoNames").checked ? "on" : "off"}. ` +
-      `Naming constellations: ${el("conNames").checked ? "on" : "off"}. Sound cues: ${el("cues").checked ? "on" : "off"}. Hands-free: ${Listen.handsFree() ? "on" : "off"}. ` +
+      `Naming constellations: ${el("conNames").checked ? "on" : "off"}. Sound cues: ${el("cues").checked ? "on" : "off"}. Hands-free: ${Listen.handsFree() ? "on" : "off"}. Red night mode: ${app.night ? "on" : "off"}. ` +
       `To change one, say things like: fewer stars, wider, speak slower, or stop announcing.`);
   }
 
@@ -1207,7 +1222,7 @@
     el("handsFreeBtn").textContent = on ? "Hands-free: on" : "Hands-free: off";
     el("handsFreeBtn").setAttribute("aria-pressed", String(on));
     Prefs.save({ handsFree: on });
-    if (!quiet) Voice.say(on ? "Hands-free is on. Start each command with Hey Star, like: Hey Star, find Jupiter. Headphones work best." : "Hands-free is off. Tap the screen to talk.", { interrupt: false });
+    if (!quiet) Voice.say(on ? "Hands-free is on. Start each question with Hey Star, like: Hey Star, what's up tonight?" : "Hands-free is off. Tap anywhere to talk.", { interrupt: false });
   }
 
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1290,6 +1305,8 @@
   const canvas = el("sky"), g = canvas.getContext("2d");
   const COLORS = { night: "#070B1F", horizon: "#1A2147", lines: "rgba(243,230,207,0.16)", label: "rgba(243,230,207,0.82)",
     planet: "#F6D28B", moon: "#F3E6CF", cone: "#9CC9FF", ember: "#FF7A45" };
+  const NIGHT_COLORS = { night: "#070202", horizon: "#3A0D0B", lines: "rgba(255,80,70,0.16)", label: "rgba(255,110,100,0.82)",
+    planet: "#FF8A7A", moon: "#FF9E92", cone: "#FF6B5E", ember: "#FF3B30" };
   const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function draw(f) {
@@ -1299,8 +1316,9 @@
     }
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     // night gradient: a little lighter toward the horizon, like real sky glow
+    const C = app.night ? NIGHT_COLORS : COLORS;
     const sky = g.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, COLORS.night); sky.addColorStop(1, "#0E1433");
+    sky.addColorStop(0, C.night); sky.addColorStop(1, app.night ? "#0C0303" : "#0E1433");
     g.fillStyle = sky; g.fillRect(0, 0, w, h);
     if (!app.objects.length) return;
     const basis = Astro.viewBasis(f);
@@ -1320,9 +1338,9 @@
       if (!q) { started = false; continue; }
       if (!started) { g.moveTo(q[0], q[1]); started = true; } else g.lineTo(q[0], q[1]);
     }
-    g.strokeStyle = COLORS.horizon; g.lineWidth = 1.5; g.stroke();
+    g.strokeStyle = C.horizon; g.lineWidth = 1.5; g.stroke();
     // constellation lines
-    g.strokeStyle = COLORS.lines; g.lineWidth = 1;
+    g.strokeStyle = C.lines; g.lineWidth = 1;
     for (const segs of Object.values(S.lines)) {
       for (const seg of segs) {
         g.beginPath(); let on = false;
@@ -1348,18 +1366,18 @@
         }
         g.fillStyle = starColor(o.star.bv, 1);
         g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill();
-        if (o.star.name && o.mag < 1.6) { g.fillStyle = COLORS.label; g.fillText(o.star.name, q[0] + 7, q[1] - 7); }
+        if (o.star.name && o.mag < 1.6) { g.fillStyle = C.label; g.fillText(o.star.name, q[0] + 7, q[1] - 7); }
       } else {
         const r = o.kind === "moon" ? 10 : 4.5;
-        g.fillStyle = o.kind === "moon" ? COLORS.moon : COLORS.planet;
+        g.fillStyle = o.kind === "moon" ? C.moon : C.planet;
         g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill();
-        g.fillStyle = COLORS.label; g.fillText(o.name, q[0] + r + 5, q[1] - r - 2);
+        g.fillStyle = C.label; g.fillText(o.name, q[0] + r + 5, q[1] - r - 2);
       }
     }
     // the listening cone: what you can hear right now
     if (app.running) {
       const rr = Math.tan(FOV_HALF * Astro.DEG) * scale;
-      const color = app.mode === "find" ? COLORS.ember : COLORS.cone;
+      const color = app.mode === "find" ? C.ember : C.cone;
       g.strokeStyle = color; g.globalAlpha = 0.9; g.lineWidth = 1.5;
       g.beginPath(); g.arc(cx, cy, rr, 0, 7); g.stroke();
       g.globalAlpha = 0.08; g.fillStyle = color; g.fill(); g.globalAlpha = 1;
@@ -1372,7 +1390,7 @@
         const ang = Math.atan2(-pv[1], pv[0]);
         if (Astro.angleBetween(f, tv) > FOV_HALF) {
           const ax = cx + Math.cos(ang) * (rr + 14), ay = cy + Math.sin(ang) * (rr + 14);
-          g.fillStyle = COLORS.ember; g.beginPath();
+          g.fillStyle = C.ember; g.beginPath();
           g.moveTo(ax + Math.cos(ang) * 10, ay + Math.sin(ang) * 10);
           g.lineTo(ax + Math.cos(ang + 2.4) * 8, ay + Math.sin(ang + 2.4) * 8);
           g.lineTo(ax + Math.cos(ang - 2.4) * 8, ay + Math.sin(ang - 2.4) * 8);
@@ -1383,6 +1401,7 @@
   }
 
   function starColor(bv, alpha) {
+    if (app.night) return `rgba(255,${Math.round(70 + 40 * (1 - Math.min(1, Math.max(0, (bv + 0.3) / 2.1))))},60,${alpha})`;
     const t = Math.min(1, Math.max(0, (bv + 0.3) / 2.1)); // 0 blue-white .. 1 red
     const r = Math.round(185 + 70 * Math.min(1, t * 1.6));
     const gg = Math.round(205 + 35 * (1 - Math.abs(t - 0.35) * 1.4));
@@ -1392,6 +1411,8 @@
 
   function updateStatus(f) {
     updateTopicCard();
+    el("hfIndicator").hidden = !(app.running && Listen.handsFree());
+    poseCheck(f);
     compassCheck();
     const p = Astro.enuToAltAz(f);
     const sensorOk = Sensors.receiving();
@@ -1405,6 +1426,16 @@
       mode.textContent = label;
       el("modePill").hidden = !label;
     }
+  }
+
+  // The first time the phone points up at the sky, confirm it, so a blind user knows they're holding it right.
+  function poseCheck(f) {
+    if (app.poseConfirmed || !app.running || app.tutorial || app.askingHF || Sensors.state.mode !== "phone" || !Sensors.receiving()) return;
+    const p = Astro.enuToAltAz(f);
+    if (p.alt < 15) { app.poseSince = 0; return; }
+    if (!app.poseSince) { app.poseSince = performance.now(); return; }
+    if (performance.now() - app.poseSince > 1500 &&
+        Voice.say(`Good, you're pointing at the sky, toward the ${Astro.compassWord(p.az)}.`, { auto: true })) app.poseConfirmed = true;
   }
 
   // iPhones report how trustworthy the compass is; warn once if it's poor
@@ -1440,19 +1471,32 @@
     sel.append(g1, g2, g3);
   }
 
+  // Location: try a quick answer first, then a slower one (laptops locate by Wi-Fi, which
+  // can take a while). If it fails, remember why, so StarSound can explain it.
   function getLocation() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve(false);
+    const ask = (opts) => new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          app.loc = { lat: pos.coords.latitude, lon: pos.coords.longitude, label: "your location" };
-          resolve(true);
-        },
-        () => resolve(false),
-        { timeout: 8000, maximumAge: 600000 },
+        (pos) => resolve({ ok: true, pos }),
+        (err) => resolve({ ok: false, code: err && err.code }),
+        opts,
       );
     });
+    return (async () => {
+      if (!navigator.geolocation) { app.locError = "unsupported"; return false; }
+      let r = await ask({ timeout: 10000, maximumAge: 30 * 60000 });
+      if (!r.ok && r.code !== 1) r = await ask({ timeout: 25000, maximumAge: 0 }); // 1 = permission denied: don't retry
+      if (!r.ok) { app.locError = { 1: "denied", 2: "unavailable", 3: "timeout" }[r.code] || "unavailable"; return false; }
+      app.loc = { lat: r.pos.coords.latitude, lon: r.pos.coords.longitude, label: "your location" };
+      app.locError = null;
+      return true;
+    })();
   }
+
+  function locationProblem() {
+    return "I couldn't get your exact location, so I'm using an estimate for the Westlake Village area.";
+  }
+
+
 
   async function keepAwake() {
     try { if ("wakeLock" in navigator) await navigator.wakeLock.request("screen"); } catch (_) {}
@@ -1473,59 +1517,113 @@
     });
   }
 
-  async function start(practice, handsFreeStart = false) {
+  // ---------- start-up: one clear sequence, spoken, with nothing to find on screen ----------
+  // First time: tutorial -> where we are -> "Would you like hands-free mode?" -> point at the sky.
+  // Later: where we are -> point at the sky (hands-free turns itself back on if chosen before).
+  async function start(practice) {
     Sound.init();
     Voice.unlock(); // iPhones only allow speech that starts inside a tap
     el("startPanel").hidden = true;
     el("controls").hidden = false;
+    app.practice = practice;
     if (practice) {
       Sensors.startSimulation();
     } else {
       try { await Sensors.startPhone(); }
-      catch (e) { Voice.say("Motion access was denied, so I switched to practice mode."); Sensors.startSimulation(); }
+      catch (e) { notify("Motion access was denied, so I switched to practice mode. Use the arrow keys to aim."); Sensors.startSimulation(); }
     }
-    // start playing right away with the default location; refine once GPS answers
-    rebuildSky();
+    rebuildSky(); // start with Westlake Village; switch to the real location as soon as it arrives
     setInterval(rebuildSky, 5000);
     app.running = true;
     app.startedAt = performance.now();
     keepAwake();
-    const prefs = Prefs.load();
-    const wantHandsFree = handsFreeStart || prefs.handsFree;
-    const ready = () => {
-      app.tutorial = false;
-      const hint = !Listen.supported() ? "" : practice ? "Press the space bar to ask a question." : "Tap anywhere to ask a question.";
-      Voice.say((practice ? "Practice mode: use the arrow keys to aim. " : "Point your phone at the sky. ") + hint);
-      if (wantHandsFree) setTimeout(() => setHandsFree(true, { quiet: !handsFreeStart }), 400);
-      for (const n of app.pendingNotes.splice(0)) Voice.say(n, { interrupt: false });
-      setTimeout(() => el("talkBtn").focus(), 100);
-    };
-    if (!prefs.tutorialDone) {
-      // first time: a short spoken tour of the sounds and what you can ask
-      app.tutorial = true;
-      Tutorial.open(() => { Prefs.save({ tutorialDone: true, welcomed: true }); ready(); });
-    } else {
-      ready();
-    }
-    getLocation().then((gotLoc) => {
-      if (gotLoc) rebuildSky();
-      else notify("I couldn't get your location, so I'm using the sky over Westlake Village.");
+    app.locState = "pending";
+    getLocation().then((ok) => {
+      app.locState = ok ? "ok" : "fail";
+      if (ok) rebuildSky();
+      if (app.locAnnounceWaiting) announceLocation();
     });
+    const prefs = Prefs.load();
+    if (!prefs.tutorialDone) {
+      app.tutorial = true;
+      Tutorial.open(() => { Prefs.save({ tutorialDone: true, welcomed: true }); afterIntro(true); });
+    } else {
+      afterIntro(false);
+    }
     if (!practice) {
       setTimeout(() => {
         if (!Sensors.receiving()) {
-          notify("I'm not getting motion data from this device, so I switched to practice mode. Use the arrow keys to aim.");
+          notify("This device has no motion sensors, which is normal on a computer, so I switched to practice mode. Use the arrow keys to aim, and the space bar to ask a question.");
           Sensors.startSimulation();
+          app.practice = true;
         }
       }, 2500);
     }
   }
 
+  function afterIntro(firstRun) {
+    app.tutorial = false;
+    const prefs = Prefs.load();
+    const howToTalk = app.practice ? "Use the arrow keys to aim, and press the space bar to ask a question."
+      : "Point your phone at the sky. To ask a question, tap anywhere on the screen, or with VoiceOver, double-tap anywhere.";
+    announceLocation();
+    if (firstRun && !app.practice && Listen.supported()) {
+      askHandsFree(howToTalk);
+    } else {
+      Voice.say((app.practice ? "Practice mode. " : "") + howToTalk, { interrupt: false });
+      if (prefs.handsFree && !app.practice) setTimeout(() => setHandsFree(true), 300);
+    }
+    for (const n of app.pendingNotes.splice(0)) Voice.say(n, { interrupt: false });
+    setTimeout(() => el("talkBtn").focus(), 100);
+  }
+
+  // One sentence about location, as soon as we know.
+  function announceLocation() {
+    if (app.locState === "pending") { app.locAnnounceWaiting = true; return; }
+    app.locAnnounceWaiting = false;
+    Voice.say(app.locState === "ok" ? "Using your current location."
+      : "I couldn't get your exact location, so I'm using an estimate for the Westlake Village area.", { interrupt: false });
+  }
+
+  // First run only: ask by voice whether to turn on hands-free mode.
+  function askHandsFree(howToTalk) {
+    app.askingHF = true;
+    Voice.say("Would you like hands-free mode? Then you never need to touch the screen: just start each question with, Hey Star. Say yes, or no.", { interrupt: false });
+    let settled = false;
+    const done = (yes) => {
+      if (settled) return;
+      settled = true;
+      app.askingHF = false;
+      Listen.setOpenMic(false);
+      Prefs.save({ handsFree: yes });
+      if (yes) {
+        setHandsFree(true);
+        Voice.say("Now point your phone at the sky. You can also tap anywhere to ask a question.", { interrupt: false });
+      } else {
+        Voice.say(`Okay. ${howToTalk} You can say, hands free on, any time.`);
+      }
+    };
+    app.answerHF = done;
+    (async () => {
+      await wait(500);
+      for (let k = 0; k < 200 && Voice.speaking(); k++) await wait(150);
+      if (settled) return;
+      Listen.setOpenMic(true, (alts) => {
+        for (const a of alts) {
+          const t = a.toLowerCase();
+          if (/\b(no|nope|not now|later|no thanks|dont|don't)\b/.test(t)) return done(false);
+          if (/\b(yes|yeah|yep|sure|okay|ok|please|hands free|do it)\b/.test(t)) return done(true);
+        }
+      });
+      setTimeout(() => done(false), 15000); // no answer: carry on with tap to talk
+    })();
+  }
+
+
   function bind() {
     Voice.attach(el("speech"));
     el("startPhone").onclick = () => start(false);
     el("startPractice").onclick = () => start(true);
-    el("startHandsFree").onclick = () => start(false, true);
     el("hereBtn").onclick = whatsHere;
     el("findBtn").onclick = startFind;
     el("conBtn").onclick = () => playConstellation();
@@ -1539,8 +1637,8 @@
     el("helpBtn").onclick = () => Voice.say(Commands.HELP);
     el("tutorialBtn").onclick = openTutorial;
     el("cues").onchange = (e) => { Sound.setCues(e.target.checked); Prefs.save({ cues: e.target.checked }); };
+    el("nightMode").onchange = (e) => setNight(e.target.checked);
     el("stopBtn").onclick = () => stopAll();
-    el("srMode").onchange = (e) => { Voice.setScreenReader(e.target.checked); Prefs.save({ sr: e.target.checked }); };
     el("conNames").onchange = (e) => Prefs.save({ conNames: e.target.checked });
     el("autoNames").onchange = (e) => Prefs.save({ autoNames: e.target.checked });
     el("focus").onchange = (e) => { setFocus(e.target.value); Prefs.save({ focus: e.target.value }); };
@@ -1614,9 +1712,9 @@
     if (typeof p.conNames === "boolean") el("conNames").checked = p.conNames;
     if (typeof p.autoNames === "boolean") el("autoNames").checked = p.autoNames;
     if (typeof p.cues === "boolean") { el("cues").checked = p.cues; Sound.setCues(p.cues); }
+    if (p.night) setNight(true);
     if (p.focus) el("focus").value = setFocus(p.focus);
     if (p.detail) { setDetail(p.detail); el("detail").value = p.detail; }
-    if (p.sr) { el("srMode").checked = true; Voice.setScreenReader(true); }
   }
 
   fillTargets();

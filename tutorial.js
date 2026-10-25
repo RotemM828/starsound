@@ -18,7 +18,7 @@ const Tutorial = (() => {
     },
     {
       title: "Point your phone at the sky",
-      text: "Hold your phone up, like you're taking a photo of the sky. The back of the phone, where the camera is, points at the stars you hear. Headphones work best, because sounds come from the direction of each star.",
+      text: "Hold your phone up, like you're taking a photo of the sky. The back of the phone, where the camera is, points at the stars you hear. Headphones work best, because sounds come from the direction of each star. If you can't hear the stars, turn off your phone's silent mode.",
     },
     {
       title: "Every star is a soft bell",
@@ -58,7 +58,7 @@ const Tutorial = (() => {
     },
     {
       title: "Talking to StarSound",
-      text: "To ask me something, tap anywhere on the screen. You'll hear two soft rising notes, which mean I'm listening. Then ask a question, like: What am I pointing at? Find Jupiter. What's up tonight? Or, is Saturn up?",
+      text: "To ask me something, tap anywhere on the screen. If you use VoiceOver, double-tap anywhere. Wait for two soft rising notes, which mean I'm listening, then ask your question, like: What am I pointing at? Find Jupiter. What's up tonight? Or, is Saturn up?",
       demo: async () => { Sound.earcon("listen"); },
     },
     {
@@ -67,7 +67,7 @@ const Tutorial = (() => {
     },
     {
       title: "You're ready",
-      text: "A few more things. Say hands free on, and then start each question with Hey Star, so you never need to touch the screen. Say help any time to hear what you can ask, or tutorial to hear this again. Say next, or tap anywhere, to start exploring.",
+      text: "That's the tour. Say help any time to hear what you can ask, show menu to see every button, or tutorial to hear this again. Say next, or tap anywhere, to finish.",
     },
   ];
 

@@ -340,6 +340,16 @@ const Commands = (() => {
       "what is around it", "whats around here", "whats next to it", "what is next to it", "anything nearby", "anything else nearby",
       "what else is here", "what else is near", "nearby", "near it", "around it", "neighbors", "whats close to it"])) return r("nearby");
     if (has(t, ["brightest", "the brightest thing", "brightest star", "brightest planet", "brightest object"]) && !has(t, ["only", "fewer", "just the"])) return r("brightest");
+    if (has(t, ["my location", "what location", "which location", "where do you think i am", "use my location",
+      "find my location", "update my location", "wrong location"])) return r("location");
+
+    // the on-screen menu and red night mode
+    if (has(t, ["close menu", "hide menu", "close the menu", "hide the menu", "hide buttons", "hide the buttons"])) return r("menu", { on: false });
+    if (is(t, ["menu", "the menu"]) || has(t, ["show menu", "open menu", "show the menu", "open the menu", "show buttons", "show the buttons", "show me the buttons"])) return r("menu", { on: true });
+    if (has(t, ["night mode", "red mode", "red light", "red screen", "night vision"])) {
+      return r("night", { on: !has(t, ["off", "stop", "disable", "dont", "no", "turn off", "normal"]) });
+    }
+
     // complaints are commands too
     if (has(t, ["too loud", "lower the volume", "turn down", "turn the volume down", "lower volume"])) return r("quieter");
     if (has(t, ["too quiet", "cant hear", "can not hear", "hard to hear", "barely hear", "raise the volume", "turn up"])) return r("louder");
@@ -437,6 +447,7 @@ const Commands = (() => {
 
   const HELP = "Here's what you can ask. What am I pointing at? What's up tonight? Find Jupiter, or, find the Big Dipper. " +
     "Take me on a tour. When you're on something, ask: describe it, what's nearby, or, how far is it. " +
+    "Say show menu to see every button on screen. " +
     "You can also ask astronomy questions, like, why do stars twinkle? To hear every command, say: all commands.";
 
   const HELP_ALL = "Every command. Pointing: What am I pointing at. Which way is north. " +
@@ -449,7 +460,7 @@ const Commands = (() => {
     "Your journal: What have I seen this month. What did I see last night. Have I seen Saturn. " +
     "Sound: Pause. Resume. Louder. Quieter. Speak slower. Speak faster. Repeat. " +
     "Settings: What are my settings. Fewer stars, or more stars. Narrower, or wider. Stop announcing, or start announcing. " +
-    "Stop naming constellations, or name constellations. Reset settings. " +
+    "Stop naming constellations, or name constellations. Night mode on, or off. Show menu. Reset settings. " +
     "Hands-free: say hands free on, then start each command with Hey Star. Say hands free off to stop.";
 
   return { parse, parseAlternatives, setVocabulary, matchTarget, matchFaq, normalize, editDistance, HELP, HELP_ALL };

@@ -2,17 +2,17 @@
 
 **Hear the night sky.** StarSound lets blind and visually impaired people explore the stars by sound and by voice. Point a phone at the sky, and every star in view plays a note. Ask out loud to find planets, hear what you're pointing at, take a guided tour, or learn the story behind a star.
 
-**Try it:** [rotemm828.github.io/starsound](https://rotemm828.github.io/starsound/). Open it on a phone, use headphones, and tap Start. On a computer, choose Practice: arrow keys aim, and Space talks.
+**Try it:** [rotemm828.github.io/starsound](https://rotemm828.github.io/starsound/). StarSound is made for a phone with headphones: open the link and tap Start. **Judges on a computer:** choose "On a computer? Practice with the arrow keys." The arrow keys aim, and the space bar asks a question.
 
-![StarSound screens: the spoken tutorial, the sky view while pointing at Saturn, and the Find list showing what's up now](screenshots.png)
+![StarSound screens: the spoken tutorial, the sky view while pointing at Saturn, the Find list showing what is up now, and the Menu](screenshots.png)
 
 ### Quick start
-1. Tap **Start, and point at the sky**, and allow motion, location, and microphone.
-2. A short spoken tutorial explains the sounds. Tap anywhere to go through it.
-3. Tap anywhere on the screen and ask: "What am I pointing at?", "Find Saturn", or "What's up tonight?"
-4. Hold still on something bright and StarSound names it. Then ask "Describe it" or "What's nearby?"
-5. Say "hands free on" to use it without touching the screen: start each question with "Hey Star."
-
+1. Tap **Start, and point at the sky**. Allow motion, location, and microphone when asked.
+2. A short spoken tutorial explains the sounds and what to ask. Say "next", or tap anywhere, to go on.
+3. StarSound says whether it's using your location, then asks: *"Would you like hands-free mode?"* Say yes or no.
+4. Point the phone at the sky. To ask something, **tap anywhere on the screen** (with VoiceOver, double-tap anywhere), wait for two soft notes, and ask: "What am I pointing at?", "Find Saturn", or "What's up tonight?" In hands-free mode, just say "Hey Star" first.
+5. Hold still on something bright and StarSound names it. Then ask "Describe it" or "What's nearby?"
+6. Say "show menu" (or tap Menu) to see every button.
 
 ## How the sound works
 
@@ -29,14 +29,16 @@ Hold still on a star or planet and the app says its name, color, and distance. S
 
 ## Features
 
-- **Voice control:** tap the big Talk button (or press Space on a computer) and speak. Uses the browser's built-in speech recognition, so it needs no accounts or keys.
+- **Voice control:** the whole screen is the Talk button, so tap anywhere (or double-tap anywhere with VoiceOver, or press Space on a computer) and speak. It uses the browser's built-in speech recognition, so it needs no accounts or keys.
 - **Explore:** sweep the sky and hear it; hold still to hear names; constellation names are spoken as you pass through them.
-- **Find:** "Find Jupiter", "Find the Big Dipper", "Which way is north". A ticking sound comes *from the direction of the target* and speeds up as you get closer, with spoken hints ("Turn right 40. Raise 20.").
+- **Find:** "Find Jupiter", "Find the Big Dipper", "Which way is north". A soft ping comes *from the direction of the target* and speeds up as you get closer, with spoken hints ("Turn left 20 degrees, and raise the phone 10 degrees.").
 - **Guided tour:** "Take me on a tour" picks up to 6 highlights currently above the horizon (Moon, planets, a bright star, constellations), leads you to each one, and tells its story. Say "Next" to move on.
 - **Stories:** "Tell me more" or "Tell me about Vega" reads a short story about stars, planets, the Moon, and 28 constellations.
 - **Play this constellation:** hear a constellation's shape as a melody traced along its lines.
 - **What's up tonight:** a spoken summary of planets, bright stars, and the Moon phase.
-- **Accessible:** large buttons; works with VoiceOver and TalkBack (switch in Settings); adjustable speaking speed and volume, which the phone remembers; sound cues for listening, done, and not understood; vibration on Android.
+- **Accessible:** works with VoiceOver and TalkBack (the first thing they reach is the full-screen "Talk to StarSound" button); every setting can be changed by voice; adjustable speaking speed and volume, which the phone remembers; vibration on Android. Star sounds keep playing even when an iPhone is set to silent.
+- **A clean screen:** the sky fills the screen, with only a short caption and four shortcuts (What's here?, Tonight, Find, Menu). Every other button lives in the Menu, which hides itself after you pick something.
+- **Red night mode:** dim red colors that keep a sighted companion's eyes adjusted to the dark, the way astronomers use red flashlights. Say "night mode on".
 - **Works offline:** after the first visit, the app is saved on the phone (except voice commands, which need internet on most phones). It can be added to the home screen like an app.
 
 ### First launch: a spoken tutorial
@@ -69,11 +71,11 @@ In testing, StarSound understood 85% of sentences it had never seen before on th
 
 A blind user is holding the phone up at the sky, so nothing requires finding a button:
 
-- **Tap anywhere** on the screen (while using the phone's sensors) to talk.
-- **Hands-free mode** (say "hands free on", or choose "Start hands-free"): the microphone stays on, and commands start with the wake phrase **"Hey Star"**, as in "Hey Star, is Saturn up?" Saying just "Hey Star" arms it for the next sentence. Ordinary conversation is ignored, and the microphone pauses while the app is speaking. This also works with the phone strapped to a headband, so the app follows your head.
+- **Tap anywhere** on the screen to talk. The whole screen is one large "Talk to StarSound" button, so VoiceOver users can double-tap anywhere, and focus always returns to it after a menu closes.
+- **Hands-free mode** (offered by voice after the tutorial, or say "hands free on" any time): the microphone stays on, and commands start with the wake phrase **"Hey Star"**, as in "Hey Star, is Saturn up?" Saying just "Hey Star" arms it for the next sentence. Ordinary conversation is ignored, and the microphone pauses while the app is speaking. This also works with the phone strapped to a headband, so the app follows your head.
 - **Conversation flow:** hold still on something and StarSound says "You're on Saturn, a planet." Then just ask "describe it", "what's nearby", or "how far is it". In hands-free mode, a soft chime after each answer means you can reply for a few seconds without saying "Hey Star". People chatting nearby are ignored.
 - **A calm, focused listening circle:** about 22 degrees across (adjustable: narrow, normal, wide), up to 5 stars at once, and only stars you could realistically see from a suburb. Names are announced only when you hold still, and only for the Moon, planets, and the brightest stars.
-- **Sound cues** signal listening, done, and not understood. A spoken welcome explains everything on first use.
+- **Spoken start-up:** the tutorial, one sentence about location, the hands-free question, and "Good, you're pointing at the sky" the first time the phone points up. A blind user never has to find anything on screen.
 
 ### What you can say
 
@@ -139,11 +141,17 @@ StarSound was designed to collect as little as possible and to keep what it uses
 
 - **No accounts, no server, no analytics, no ads.** The app is static files on GitHub Pages, served over HTTPS. There is nothing to log into and no database to breach.
 - **Location and motion sensors are used on the device only** to calculate the sky. They are never sent anywhere. The app asks for each permission only when the user taps Start.
-- **Microphone:** on only while the user is talking, or while hands-free mode is on. The browser's built-in speech service (Google in Chrome, Apple in Safari) turns speech into text; StarSound never records or stores audio. Every voice command also has a button.
+- **Microphone:** on only while the user is talking, during the tutorial (to hear "next"), or while hands-free mode is on. The browser's built-in speech service (Google in Chrome, Apple in Safari) turns speech into text; StarSound never records or stores audio. Every voice command also has a button.
 - **Observing log and settings** are stored only in the phone's local storage. Users can erase the log from the Privacy page or by saying "clear my log" (with a confirmation step).
 - **No third-party code at runtime.** The astronomy library and the font ship inside the app (pinned versions), so the page never loads scripts from other websites. A Content Security Policy blocks scripts, fonts, and connections from anywhere except the app's own site, and the offline cache stores only the app's own files.
 - **Safe handling of text:** everything the user says is displayed as plain text, never inserted as HTML, so spoken or typed input can't inject code.
 - **A Privacy page inside the app** explains all of this in plain language, and users can ask "Is my data private?" by voice.
+
+## What's next (StarSound 2.0)
+
+- **Spanish:** Ventura County has a large Spanish-speaking community. Phones already support Spanish speech; the work is translating every answer and teaching the command understanding Spanish phrasing, with native-speaker review.
+- **Calibrating without sight:** a backup way for a blind user to correct the compass alone, for example by facing the warmth of the Sun.
+- **StarSound Ear:** a small clip-on motion sensor, so the sky follows your head and you don't need to hold a phone at all.
 
 ## Credits and licenses
 

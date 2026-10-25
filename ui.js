@@ -14,10 +14,21 @@
   document.querySelectorAll("dialog").forEach((d) => {
     d.querySelectorAll("[data-close], [data-closes]").forEach((b) => b.addEventListener("click", () => close(d)));
     d.addEventListener("click", (e) => { if (e.target === d) close(d); }); // tap outside the sheet
+    // when a sheet closes, put focus back on the full-screen Talk button, so VoiceOver users
+    // can always double-tap anywhere to talk
+    d.addEventListener("close", () => setTimeout(() => {
+      if (!document.querySelector("dialog[open]") && !$("controls").hidden) $("talkBtn").focus();
+    }, 50));
   });
 
-  $("openSettings").addEventListener("click", () => open("settingsSheet"));
-  $("openMore").addEventListener("click", () => open("moreSheet"));
+  // Menu buttons that repeat a shortcut ("What's here?", "Tonight", "Find") press the real one
+  document.querySelectorAll("[data-proxy]").forEach((b) => b.addEventListener("click", () => {
+    setTimeout(() => $(b.dataset.proxy).click(), 60);
+  }));
+  $("openMenu").addEventListener("click", () => open("menuSheet"));
+
+  $("openSettings").addEventListener("click", () => { close($("moreSheet")); open("settingsSheet"); });
+  $("openMore").addEventListener("click", () => setTimeout(() => open("moreSheet"), 60));
   $("privacyBtn").addEventListener("click", () => { close($("moreSheet")); open("privacySheet"); });
   $("journalBtn").addEventListener("click", () => { close($("moreSheet")); open("journalSheet"); });
   $("clearLogBtn").addEventListener("click", () => {
@@ -32,11 +43,10 @@
   });
 
   // after Start, put keyboard and screen-reader focus on the Talk button
-  ["startPhone", "startHandsFree", "startPractice"].forEach((id) =>
-    $(id).addEventListener("click", () => {
-      $("openSettings").hidden = false;
-      setTimeout(() => $("talkBtn").focus(), 300);
-    }));
+  ["startPhone", "startPractice"].forEach((id) =>
+    $(id).addEventListener("click", () => setTimeout(() => { if (!document.querySelector("dialog[open]")) $("talkBtn").focus(); }, 300)));
+
+  window.StarSoundUI = { open, close, openMenu: () => open("menuSheet"), closeAll: () => document.querySelectorAll("dialog[open]").forEach(close) };
 
   // ---------- Find list ----------
   // Stars that never rise from the user's location are left out, and each item says

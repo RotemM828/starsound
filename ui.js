@@ -26,6 +26,7 @@
     setTimeout(() => $(b.dataset.proxy).click(), 60);
   }));
   $("openMenu").addEventListener("click", () => open("menuSheet"));
+  $("menuSettings").addEventListener("click", () => setTimeout(() => open("settingsSheet"), 60));
 
   $("openSettings").addEventListener("click", () => { close($("moreSheet")); open("settingsSheet"); });
   $("openMore").addEventListener("click", () => setTimeout(() => open("moreSheet"), 60));
@@ -46,7 +47,7 @@
   ["startPhone", "startPractice"].forEach((id) =>
     $(id).addEventListener("click", () => setTimeout(() => { if (!document.querySelector("dialog[open]")) $("talkBtn").focus(); }, 300)));
 
-  window.StarSoundUI = { open, close, openMenu: () => open("menuSheet"), closeAll: () => document.querySelectorAll("dialog[open]").forEach(close) };
+  window.StarSoundUI = { open, close, openMenu: () => open("menuSheet"), openSettings: () => { document.querySelectorAll("dialog[open]").forEach(close); open("settingsSheet"); }, closeAll: () => document.querySelectorAll("dialog[open]").forEach(close) };
 
   // ---------- Find list ----------
   // Stars that never rise from the user's location are left out, and each item says
@@ -57,7 +58,10 @@
   S.stars.forEach((s, i) => {
     if (s.name && s.mag < 2.6) items.push({ group: "Bright stars", value: "object:s" + i, label: s.name, dec: s.dec, target: { type: "object", id: "s" + i }, note: s.con ? S.cons[s.con] : "" });
   });
-  for (const id of Object.keys(S.lines)) items.push({ group: "Constellations", value: "con:" + id, label: S.cons[id], target: { type: "con", id }, note: "" });
+  for (const id of Object.keys(S.lines)) {
+    const dec = Math.max(...[...new Set(S.lines[id].flat())].map((i) => S.stars[i].dec)); // its most northern star
+    items.push({ group: "Constellations", value: "con:" + id, label: S.cons[id], dec, target: { type: "con", id }, note: "" });
+  }
   const order = { "Moon and planets": 0, "Bright stars": 1, Constellations: 2 };
 
   function status(it) {

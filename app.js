@@ -244,12 +244,12 @@
         parts.push(`${o.name} is ${PLANET_FACTS[o.name] || "a planet"}.`);
         parts.push(distanceSentence(target));
       }
-      parts.push(`Right now it's ${whereWords(o)}.`);
+      parts.push(neverRises(target) ? "It never rises from where you are, so you'd have to travel much farther south to see it." : `Right now it's ${whereWords(o)}.`);
       const story = storyForObject(o);
       if (story) parts.push(story);
     } else if (target.type === "con") {
       app.lastTopic = { kind: "con", id: target.id, at: performance.now() };
-      parts.push(`${conSpoken(target.id)}. It's ${whereWords({ vec: targetVec(target) })}.`);
+      parts.push(`${conSpoken(target.id)}. ${neverRises(target) ? "It never rises from where you are, so you'd have to travel much farther south to see it." : `It's ${whereWords({ vec: targetVec(target) })}.`}`);
       const brightest = [...new Set(S.lines[target.id].flat())].map((i) => app.objects[i])
         .filter((o) => o.star.name).sort((a, b) => a.mag - b.mag)[0];
       if (brightest) parts.push(`Its brightest star is ${brightest.star.name}.`);
@@ -259,7 +259,7 @@
     } else {
       return findTarget(target);
     }
-    if (app.followHints < 2) {
+    if (app.followHints < 2 && !neverRises(target)) {
       parts.push("You can also ask: how far is it, when does it set, or what's nearby.");
       app.followHints++;
     }
@@ -586,9 +586,25 @@
     await wait(300);
   }
 
+  // stars and constellations so far south (or north) that they never clear the horizon here
+  function neverRises(t) {
+    if (!t || (t.type !== "object" && t.type !== "con")) return false;
+    let decs;
+    if (t.type === "object") { const o = app.byId.get(t.id); if (!o || !o.star) return false; decs = [o.star.dec]; }
+    else decs = [...new Set(S.lines[t.id].flat())].map((i) => app.objects[i].star.dec);
+    const lat = app.loc.lat;
+    return lat >= 0 ? Math.max(...decs) < lat - 90 : Math.min(...decs) > lat + 90;
+  }
+  function neverRisesWords(t) {
+    const name = t.type === "con" ? conSpoken(t.id) + (conSpoken(t.id).includes(",") ? "," : "") : capitalize(t.label);
+    const way = app.loc.lat >= 0 ? "south" : "north";
+    return `${name} never rises from where you are. It's too far ${way} in the sky, so you'd have to travel much farther ${way} to see it.`;
+  }
+
   function findTarget(target, { quiet = false } = {}) {
     if (!target) return;
     if (target.type === "object" && !app.byId.get(target.id)) return;
+    if (neverRises(target)) { Voice.say(neverRisesWords(target)); if (app.tour) nextStop(); return; }
     if (target.type !== "dir") {
       const v = targetVec(target);
       if (v[2] < -0.02) { // below the horizon: say when it rises instead of pointing at the ground
@@ -769,6 +785,9 @@
       }
       case "brightest": return brightest();
       case "settings": return settingsSummary();
+      case "openSettings":
+        StarSoundUI.openSettings();
+        return Voice.say("Settings are open. You can also change any setting by voice, like: fewer stars, or speak slower.");
       case "resetSettings": {
         el("focus").value = setFocus("normal"); setDetail("bright"); el("detail").value = "bright";
         el("autoNames").checked = true; el("conNames").checked = true; el("cues").checked = Sound.setCues(true);
@@ -1083,6 +1102,7 @@
     if (!target) return;
     const label = target.type === "sun" ? "the Sun" : target.label;
     const verb = dir === "rise" ? "rises" : "sets";
+    if (neverRises(target)) { Voice.say(neverRisesWords(target)); return; }
     const d = nextRiseSet(target, dir);
     if (d) { Voice.say(`${capitalize(label)} ${verb} ${timeWords(d)}.`); return; }
     const alt = target.type === "sun" ? sunAltitudeAt(new Date()) : Astro.enuToAltAz(targetVec(target)).alt;
@@ -1097,10 +1117,11 @@
         : `No, the Sun is down. It rises ${timeWords(nextRiseSet(target, "rise"))}.`);
       return;
     }
+    if (target.type === "dir") { findTarget(target); return; }
+    if (neverRises(target)) { Voice.say(`No. ${neverRisesWords(target)}`); return; }
     const vec = targetVec(target);
     const { alt } = Astro.enuToAltAz(vec);
     const label = capitalize(target.label);
-    if (target.type === "dir") { findTarget(target); return; }
     if (alt > 0) {
       const set = nextRiseSet(target, "set");
       let t = `Yes. ${label} is ${whereWords({ vec })}.`;

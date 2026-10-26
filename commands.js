@@ -20,7 +20,7 @@ const Commands = (() => {
     "the eagle": "con:Aql", "eagle": "con:Aql", "the lyre": "con:Lyr", "lyre": "con:Lyr",
     "winged horse": "con:Peg", "great square": "con:Peg",
     "pleiades": "con:Tau", "seven sisters": "con:Tau",
-    "north star": "star:Polaris", "pole star": "star:Polaris", "dog star": "star:Sirius",
+    "southern cross": "con:Cru", "the southern cross": "con:Cru", "alpha centauri": "star:Rigil Kentaurus", "alpha centauri a": "star:Rigil Kentaurus", "north star": "star:Polaris", "pole star": "star:Polaris", "dog star": "star:Sirius",
     "red planet": "planet:Mars", "evening star": "planet:Venus", "morning star": "planet:Venus",
     "north": "dir:north", "south": "dir:south", "east": "dir:east", "west": "dir:west",
     "overhead": "dir:up", "straight up": "dir:up", "zenith": "dir:up",
@@ -362,6 +362,7 @@ const Commands = (() => {
       return r("cues", { on: !has(t, ["off", "stop", "no", "dont", "disable", "turn off", "mute", "annoying"]) });
     }
     if (has(t, ["reset settings", "default settings", "reset my settings", "restore defaults"])) return r("resetSettings");
+    if (has(t, ["open settings", "show settings", "show me the settings", "open the settings", "settings page", "go to settings", "change settings"])) return r("openSettings");
     if (has(t, ["what are my settings", "my settings", "read my settings", "current settings", "settings"])) return r("settings");
     if (has(t, ["fewer stars", "less stars", "only bright stars", "only the brightest", "brightest only"])) return r("detail", { dir: "fewer" });
     if (has(t, ["more stars", "all the stars", "every star", "fainter stars"])) return r("detail", { dir: "more" });

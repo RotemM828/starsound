@@ -12,7 +12,7 @@
 3. StarSound says whether it's using your location, then asks: *"Would you like hands-free mode?"* Say yes or no.
 4. Point the phone at the sky. To ask something, **tap anywhere on the screen** (with VoiceOver, double-tap anywhere), wait for two soft notes, and ask: "What am I pointing at?", "Find Saturn", or "What's up tonight?" In hands-free mode, just say "Hey Star" first.
 5. Hold still on something bright and StarSound names it. Then ask "Describe it" or "What's nearby?"
-6. Say "show menu" (or tap Menu) to see every button.
+6. Say "show menu" (or tap Menu) to see every button, including Settings. You can also say "open settings."
 
 ## How the sound works
 
